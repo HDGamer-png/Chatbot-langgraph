@@ -19,6 +19,7 @@ from backend import ChatHistoryStore, ProcessInspector, UserDataStore
 
 # Load environment
 load_dotenv()
+ENABLE_OCR = os.getenv("ENABLE_OCR", "false").strip().lower() in ("1", "true", "yes")
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
@@ -249,23 +250,30 @@ def _get_extraction_dependencies() -> dict[str, bool]:
         "PyMuPDF": False,
         "python-docx": False,
         "openpyxl": False,
+        "ocr_enabled": ENABLE_OCR,
     }
-    for module_name in ["PIL", "pytesseract", "easyocr", "PyPDF2", "pdf2image", "fitz", "docx", "openpyxl"]:
+
+    def _module_available(name: str) -> bool:
         try:
-            importlib.import_module(module_name)
-            if module_name == "docx":
-                deps["python-docx"] = True
-            elif module_name == "fitz":
-                deps["PyMuPDF"] = True
-            else:
-                deps[module_name] = True
+            return importlib.util.find_spec(name) is not None
         except Exception:
-            pass
+            return False
+
+    deps["PIL"] = _module_available("PIL")
+    deps["pytesseract"] = _module_available("pytesseract")
+    deps["easyocr"] = _module_available("easyocr")
+    deps["PyPDF2"] = _module_available("PyPDF2")
+    deps["pdf2image"] = _module_available("pdf2image")
+    deps["PyMuPDF"] = _module_available("fitz")
+    deps["python-docx"] = _module_available("docx")
+    deps["openpyxl"] = _module_available("openpyxl")
     deps["tesseract_binary"] = _find_tesseract_binary_path() is not None
     return deps
 
 
 def _run_easyocr(image) -> str | None:
+    if not ENABLE_OCR:
+        return None
     try:
         from easyocr import Reader
     except Exception as exc:
@@ -283,6 +291,10 @@ def _run_easyocr(image) -> str | None:
 
 
 def _extract_text_from_image(path: Path) -> str | None:
+    if not ENABLE_OCR:
+        print("[OCR] OCR disabled via ENABLE_OCR environment setting.")
+        return None
+
     try:
         from PIL import Image, ImageOps
     except Exception as exc:
@@ -363,6 +375,9 @@ def _extract_text_from_pdf(path: Path) -> str | None:
     if text_pages:
         return _truncate_text("\n\n".join(text_pages))
 
+    if not ENABLE_OCR:
+        return None
+
     fallback_texts = []
     try:
         from pdf2image import convert_from_path
@@ -393,6 +408,9 @@ def _extract_text_from_pdf(path: Path) -> str | None:
 
 
 def _extract_text_from_pil_image(image) -> str | None:
+    if not ENABLE_OCR:
+        return None
+
     pytesseract_available = False
     try:
         import pytesseract
@@ -700,6 +718,12 @@ def health():
             _provider or getattr(module, "PROVIDER", None) or "unknown"
         )
         deps = _get_extraction_dependencies()
+        extraction_available = all([
+            deps["PIL"],
+            deps["tesseract_binary"],
+            (deps["pytesseract"] or deps["easyocr"]),
+            ENABLE_OCR,
+        ])
         return jsonify({
             "status": "ok",
             "provider": current_provider,
@@ -708,7 +732,8 @@ def health():
             "model_main": model_main,
             "extraction_dependencies": deps,
             "tesseract_path": _find_tesseract_binary_path(),
-            "extraction_available": all(deps.values()),
+            "extraction_available": extraction_available,
+            "ocr_enabled": ENABLE_OCR,
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
