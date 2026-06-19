@@ -838,19 +838,13 @@ class RouterAgent(AgentBase):
             elif intent in ("langgraph","crewai","react","memory","rag","multiagent"):
                 self._record_call("KnowledgeBase")
                 self._record_call("Analyst")
-                self._record_call("Planner")
-                self._record_call("Validator")
                 self._record_call("WebSearch")
                 ws_agent = WebSearchAgent(called_by=self.NAME)
                 futures["web"] = (pool.submit(ws_agent.run, query=query), ws_agent)
                 kb_agent  = KnowledgeBaseAgent(called_by=self.NAME)
                 an_agent  = AnalystAgent(called_by=self.NAME)
-                pl_agent  = PlannerAgent(called_by=self.NAME)
-                val_agent = ValidatorAgent(called_by=self.NAME)
                 futures["kb"]   = (pool.submit(kb_agent.run, query=query, intent=intent), kb_agent)
                 futures["anal"] = (pool.submit(an_agent.run, topic=query, context=kb_context), an_agent)
-                futures["plan"] = (pool.submit(pl_agent.run, query=query, context=kb_context), pl_agent)
-                futures["val"]  = (pool.submit(val_agent.run, query=query, context=kb_context), val_agent)
 
             elif intent == "greet":
                 self._record_call("Analyst")
@@ -872,7 +866,7 @@ class RouterAgent(AgentBase):
                 try:
                     ts_start = time.time()
                     t0       = time.perf_counter()
-                    r        = fut.result(timeout=30)
+                    r        = fut.result(timeout=15)
                     dur      = time.perf_counter() - t0
                     message = r.pop("message", None)
                     if message:
@@ -936,18 +930,15 @@ class ResponseGeneratorAgent(AgentBase):
             coordination_summary: str = "", history: str = "") -> dict:
 
         system = (
-            "Bạn là một hệ thống multi-agent AI hợp tác, gồm nhiều agent độc lập nhưng làm việc cùng nhau để thực hiện mục tiêu chung. \n\n"
-            "Mỗi agent có vai trò riêng và bạn tổng hợp kết quả của chúng thành câu trả lời cuối cùng. \n\n"
-            "**Nguyên tắc trả lời:**\n"
-            "1. Luôn trả lời tiếng Việt chuẩn mực, rõ ràng và có cấu trúc logic.\n"
-            "2. Sử dụng Markdown để định dạng: tiêu đề (##, ###), danh sách (-), bảng, code block.\n"
-            "3. Chỉ sử dụng in đậm (**text**) cho: tiêu đề, keywords quan trọng, cảnh báo, hoặc nội dung đáng chú ý. Không in đậm văn bản thông thường.\n"
-            "4. Trả lời đầy đủ: mở đầu rõ ràng → giải thích chi tiết → kết luận hoặc gợi ý.\n"
-            "5. Nếu có bảng dữ liệu, dùng định dạng bảng Markdown để dễ đọc.\n"
-            "6. Luôn dựa trên ngữ cảnh, lịch sử hội thoại và thông tin được cung cấp.\n"
-            "7. Nếu thiếu thông tin, hãy nói rõ và gợi ý thêm câu hỏi.\n\n"
-            "8. Nếu cần làm nổi bật một từ hoặc cụm từ, hãy dùng marker dạng `!!important: <short phrase>` — KHÔNG sử dụng thẻ HTML (`<strong>`, `<b>`) hoặc ký hiệu `**` để in đậm. Front-end sẽ chỉ in đậm những đoạn được đánh dấu bằng marker này.\n\n"
-            "**Tông độ:** Thân thiện, chuyên nghiệp, hỗ trợ tích cực."
+            "Bạn là một hệ thống multi-agent AI. Nhiệm vụ của bạn là tổng hợp thông tin từ các agent con và trả lời người dùng một cách nhanh chóng, rõ ràng, và hữu ích.\n\n"
+            "Hãy trả lời bằng tiếng Việt đúng chuẩn, ngắn gọn nhưng đủ ý.\n"
+            "Nếu có thể, tóm tắt câu trả lời trong 1-2 câu đầu, sau đó cung cấp chi tiết và kết luận rõ ràng.\n"
+            "Hạn chế dùng định dạng Markdown phức tạp; chỉ dùng danh sách hoặc tiêu đề khi thật cần.\n"
+            "Nếu cần nhấn mạnh một điểm quan trọng, hãy dùng marker `!!important: <short phrase>`.\n"
+            "Không dùng thẻ HTML như <strong> hoặc <b>.\n"
+            "Nếu không có đủ thông tin, hãy thẳng thắn hỏi thêm thay vì suy đoán.\n"
+            "Kết thúc bằng gợi ý hành động tiếp theo nếu phù hợp.\n"
+            "Tông độ: thân thiện, chuyên nghiệp, hỗ trợ."
         )
 
         context_parts = []
@@ -974,7 +965,13 @@ class ResponseGeneratorAgent(AgentBase):
         prompt = (
             f"Câu hỏi: {query}\n\n"
             + (f"Ngữ cảnh:\n{context_block}\n\n" if context_block else "")
-            + "Hãy trả lời câu hỏi trên một cách đầy đủ và rõ ràng."
+            + "Hãy trả lời nhanh, rõ ràng và dễ hiểu.\n"
+            + "1. Tóm tắt ngắn gọn (1-2 câu).\n"
+            + "2. Giải thích chính xác, không dài dòng.\n"
+            + "3. Nếu có gợi ý hoặc bước tiếp theo thì thêm vào cuối.\n"
+            + "4. Nếu có thể, dùng cấu trúc: ## Tóm tắt, ### Giải thích, ### Kết luận.\n"
+            + "5. Nếu có thể, kết thúc bằng phần 'Gợi ý hành động tiếp theo:' rõ ràng ở cuối.\n"
+            + "Chỉ dùng Markdown đơn giản và không thêm nội dung thừa."
         )
         prompt = _truncate_text(prompt, GROQ_PROMPT_TOTAL_LIMIT)
 
@@ -983,17 +980,13 @@ class ResponseGeneratorAgent(AgentBase):
             HumanMessage(content=prompt),
         ])
 
-        # Server-side post-processing: strip raw HTML bold tags and ** markers
-        answer = (resp.content or "")
-        # Remove raw <strong> / <b> tags
+        answer = (resp.content or "").strip()
         answer = re.sub(r'</?(?:strong|b)[^>]*>', '', answer, flags=re.IGNORECASE)
-        # Remove escaped forms like &lt;strong&gt;
         answer = re.sub(r'&lt;/?(?:strong|b)[^&]*&gt;', '', answer, flags=re.IGNORECASE)
-        # Remove markdown bold markers but keep marker-based highlights (!!important:)
         answer = re.sub(r'\*\*(.*?)\*\*', r'\1', answer, flags=re.DOTALL)
-        # As a final cleanup remove any leftover bare '**'
         answer = answer.replace('**', '')
-
+        answer = answer.replace('\r\n', '\n')
+        answer = re.sub(r'\n{3,}', '\n\n', answer)
         return {"final_answer": answer}
 
 # ══════════════════════════════════════════════════════════════════

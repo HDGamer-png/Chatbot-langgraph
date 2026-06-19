@@ -136,6 +136,15 @@ function displayBotMessage(text, intent = "", elapsed = 0) {
     // remove escaped HTML bold tags like &lt;strong&gt; or &lt;b&gt;
     raw = raw.replace(/&lt;\/?strong[^&]*&gt;/gi, '').replace(/&lt;\/?b[^&]*&gt;/gi, '');
 
+    // Extract next-action hint lines if present and remove them from the main body
+    let hintText = "";
+    const hintRegex = /(?:^|\n)(?:gợi ý hành động tiếp theo|gợi ý)[:：]\s*([\s\S]*)$/i;
+    const hintMatch = raw.match(hintRegex);
+    if (hintMatch) {
+        hintText = hintMatch[1].trim();
+        raw = raw.slice(0, hintMatch.index).trim();
+    }
+
     // Extract !!important: markers and replace with placeholders to preserve content
     const impMap = [];
     let impIdx = 0;
@@ -247,6 +256,10 @@ function displayBotMessage(text, intent = "", elapsed = 0) {
             const txt = document.createTextNode(el.textContent || '');
             el.parentNode.replaceChild(txt, el);
         });
+        const paragraphs = tmpDiv.querySelectorAll('p');
+        if (paragraphs.length > 1) {
+            paragraphs[0].classList.add('summary');
+        }
         renderedContent = tmpDiv.innerHTML;
     } catch (e) {
         // fallback to regex removal if DOM ops fail
@@ -262,6 +275,7 @@ function displayBotMessage(text, intent = "", elapsed = 0) {
     msgDiv.innerHTML = `
         <div>
             <div class="message-content markdown-content">${renderedContent}</div>
+            ${hintText ? `<div class="hint-card"><div class="hint-title">Gợi ý hành động tiếp theo</div><div class="hint-text">${escapeHtml(hintText).replace(/\n/g, '<br>')}</div></div>` : ''}
             <div class="metadata">
                 ${intent ? `Intent: ${escapeHtml(intent)}` : ''} 
                 ${elapsed ? `⏱ ${elapsed.toFixed(2)}s` : ''}
