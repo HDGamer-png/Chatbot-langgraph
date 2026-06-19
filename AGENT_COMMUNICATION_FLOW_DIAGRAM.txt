@@ -1,0 +1,402 @@
+```
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  🤖 MULTI-AGENT COMMUNICATION FLOW v1                        ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ INPUT: "Tính căn bậc hai của 144, rồi kể ngày hôm nay"                     │
+└──────────────────────────┬──────────────────────────────────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────────────────┐
+        │  ORCHESTRATOR (Main LLM Brain)                   │
+        │  Model: claude-sonnet-4-20250514                │
+        │                                                  │
+        │  1. Phân tích input: cần 2 tools               │
+        │  2. Quyết định gọi:                             │
+        │     • calculator_agent (sqrt)                   │
+        │     • datetime_agent (ngày)                     │
+        │  3. Sinh tool_use blocks (JSON)                 │
+        └──────┬───────────────────────────────────────────┘
+               │
+               │ Orchestrator.invoke(messages)
+               │ → resp.tool_calls = [
+               │     {"name": "calculator_agent", "args": {"expression": "sqrt(144)"}},
+               │     {"name": "datetime_agent", "args": {}}
+               │   ]
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  TOOL ROUTER (Dispatcher / Executor)             │
+        │  Đọc tool_calls từ resp                          │
+        │  Parse và dispatch đến agents                    │
+        └────┬──────────────────────────────────────────────┘
+             │
+             │ for tool_call in tool_calls:
+             │     agent_fn = AGENT_FN[tool_call["name"]]
+             │     result = agent_fn(tool_call["args"])
+             │
+    ┌────────┴──────────────────────────────┬─────────────────┐
+    │                                        │                 │
+    ▼                                        ▼                 ▼
+┌──────────────────────┐       ┌──────────────────────┐  ┌─────────────┐
+│ AGENT 1: Calculator  │       │ AGENT 2: DateTime    │  │ AGENT 3-5.. │
+│                      │       │                      │  │             │
+│ Input: {             │       │ Input: {}            │  │ (khác)      │
+│   "expression":      │       │                      │  │             │
+│   "sqrt(144)"        │       │ Execution:           │  │             │
+│ }                    │       │ • Lấy datetime.now() │  │             │
+│                      │       │ • Format ngày/giờ    │  │             │
+│ Execution:           │       │ • Trả string         │  │             │
+│ • Parse sqrt(144)    │       │                      │  │             │
+│ • Tính = 12          │       │ Output:              │  │             │
+│ • Trả "sqrt(144)=12" │       │ "Thu Hai, 19/6/2026" │  │             │
+└──────┬───────────────┘       └──────┬───────────────┘  └────┬────────┘
+       │                              │                       │
+       │ result = "sqrt(144) = 12"    │ result = "Thu..."   │ ...
+       │                              │                       │
+       └──────────┬───────────────────┴───────────────────────┘
+                  │
+                  │ Wrap in ToolMessage
+                  │ [
+                  │   ToolMessage(content="sqrt(144) = 12", tool_call_id="..."),
+                  │   ToolMessage(content="Thu Hai...", tool_call_id="..."),
+                  │ ]
+                  ▼
+        ┌──────────────────────────────────────────────────┐
+        │  STATE UPDATED with ToolMessages               │
+        │  state["messages"] = [                          │
+        │    HumanMessage("Tính căn..."),                 │
+        │    AIMessage(tool_calls=[...]),     ◄─── prev   │
+        │    ToolMessage("sqrt(144) = 12"),   ◄─── NEW    │
+        │    ToolMessage("Thu Hai..."),       ◄─── NEW    │
+        │  ]                                              │
+        └──────┬──────────────────────────────────────────┘
+               │
+               │ Check: should_continue(state)?
+               │ • if (tool_calls) and (iteration < MAX_ITER) → "tools"
+               │ • else → "end"
+               │
+               │ Quyết định: Có cần gọi tool khác không?
+               │ → KHÔNG, tất cả kết quả đã có
+               │ → Quay về ORCHESTRATOR để tổng hợp
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  ORCHESTRATOR (Next Iteration)                   │
+        │                                                  │
+        │  Nhận: state["messages"] với ToolMessages        │
+        │  LLM nhìn thấy:                                 │
+        │  • User: "Tính căn bậc hai..."                  │
+        │  • Tools kết quả: sqrt=12, ngày=Thu...         │
+        │  → Quyết định: KO cần tool khác                 │
+        │  → Sinh text response:                          │
+        │    "Căn bậc hai của 144 là 12. Hôm nay là      │
+        │     thứ Hai, 19 tháng 6 năm 2026..."            │
+        │                                                  │
+        │  Return: AIMessage(content="Căn bậc hai...")   │
+        │          tool_calls=None ◄─── KO có tool calls  │
+        └──────┬───────────────────────────────────────────┘
+               │
+               │ should_continue(state)?
+               │ • tool_calls = None → FALSE
+               │ → Quyết định: END
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  FINAL OUTPUT                                    │
+        │                                                  │
+        │  "Căn bậc hai của 144 là 12. Hôm nay là thứ     │
+        │   Hai, ngày 19 tháng 6 năm 2026, tuần 25."      │
+        └──────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  🚀 MULTI-AGENT COMMUNICATION FLOW v3 (Advanced)             ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ INPUT: "So sánh LangGraph vs CrewAI"                                       │
+└──────────────────────────┬──────────────────────────────────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────────────────┐
+        │  INTENT CLASSIFIER AGENT                         │
+        │                                                  │
+        │  Input: "So sánh LangGraph vs CrewAI"           │
+        │  LLM decides: intent = "COMPARISON"             │
+        │  Entities extracted:                             │
+        │  • entity_1: "LangGraph"                        │
+        │  • entity_2: "CrewAI"                           │
+        │  • knowledge_type: "technical"                  │
+        │                                                  │
+        │  Output: {                                      │
+        │    "intent": "COMPARISON",                      │
+        │    "entities": [...],                           │
+        │    "required_agents": ["kb","search","analyst"]│
+        │  }                                              │
+        └──────┬───────────────────────────────────────────┘
+               │ intent + entities
+               │
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  ROUTER AGENT (ThreadPoolExecutor Dispatcher)    │
+        │                                                  │
+        │  Nhận: intent, entities                         │
+        │                                                  │
+        │  Bước 1: Xác định agents cần gọi               │
+        │  _determine_agents("COMPARISON")                │
+        │  → ["kb", "search", "analyst", "planner"]      │
+        │                                                  │
+        │  Bước 2: ThreadPoolExecutor.submit()            │
+        │  with ThreadPoolExecutor(max_workers=6):        │
+        │    futures[executor.submit(kb_agent.invoke(     │
+        │            entities))] = "kb"                   │
+        │    futures[executor.submit(search_agent.invoke( │
+        │            entities))] = "search"               │
+        │    futures[executor.submit(analyst_agent.invoke(│
+        │            entities))] = "analyst"              │
+        │    futures[executor.submit(planner_agent.invoke(│
+        │            entities))] = "planner"              │
+        │                                                  │
+        │  → TẤT CẢ AGENTS CHẠY CÙNG LÚC (Parallel)     │
+        └──────┬───────────────────────────────────────────┘
+               │
+    ┌──────────┼──────────────┬──────────────┬────────────┐
+    │          │              │              │            │
+    ▼          ▼              ▼              ▼            ▼
+┌────────┐  ┌────────┐    ┌────────┐    ┌────────┐   ┌──────────┐
+│  KB    │  │ Search │    │Analyst │    │Planner │   │Validator │
+│ Agent  │  │ Agent  │    │ Agent  │    │ Agent  │   │  Agent   │
+│        │  │        │    │        │    │        │   │          │
+│245ms ✓ │  │380ms ✓ │    │520ms ✓ │    │180ms ✓ │   │150ms ✓   │
+└────┬───┘  └───┬────┘    └───┬────┘    └───┬────┘   └────┬─────┘
+     │          │             │             │             │
+     │  Result: │             │             │             │
+     │  "Lang- │  Result:     │  Result:    │  Result:    │
+     │   Graph │  "CrewAI is  │ "Strengths: │ "Next       │
+     │  is..." │   a no-code  │ LangGraph   │  steps..."  │
+     │          │   ..." │   has better    │             │
+     │          │        │   control..."   │             │
+     │          │        │                 │             │
+     └──────────┼────────┼─────────────────┼─────────────┘
+                │        │                 │
+                │ as_completed(futures)   │
+                │ Collect as agents finish │
+                │
+                ▼
+        ┌──────────────────────────────────────────────────┐
+        │  ROUTER accumulating results:                    │
+        │  results = {                                     │
+        │    "kb": "LangGraph is...",                     │
+        │    "search": "CrewAI is...",                    │
+        │    "analyst": "Strengths: ...",                 │
+        │    "planner": "Next steps..."                   │
+        │  }                                              │
+        │                                                  │
+        │  timing = {                                     │
+        │    "kb": 245ms,                                 │
+        │    "search": 380ms,                             │
+        │    "analyst": 520ms,                            │
+        │    "planner": 180ms,                            │
+        │  }                                              │
+        │                                                  │
+        │  Total: max(timings) = 520ms                   │
+        │  (vs 245+380+520+180 = 1325ms sequential)       │
+        │                                                  │
+        │  Return: results  ◄─── Gửi tới Coordinator    │
+        └──────┬───────────────────────────────────────────┘
+               │ merged results
+               │
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  COORDINATOR AGENT (Merge & Priority)           │
+        │                                                  │
+        │  Input: {                                       │
+        │    "kb": "LangGraph is...",                    │
+        │    "search": "CrewAI is...",                   │
+        │    "analyst": "Strengths: ...",                │
+        │    "planner": "Next steps..."                  │
+        │  }                                              │
+        │                                                  │
+        │  Bước 1: Merge theo priority                   │
+        │  workspace = {                                  │
+        │    "kb_context": results["kb"],                │
+        │    "search_results": results["search"],        │
+        │    "analysis": results["analyst"],             │
+        │    "plan": results["planner"],                 │
+        │  }                                              │
+        │                                                  │
+        │  Bước 2: Build call_graph (tracing)            │
+        │  call_graph = [                                │
+        │    {"from": "IntentClassifier", "to":"Router"},│
+        │    {"from": "Router",                          │
+        │     "to": ["KB","Search","Analyst","Planner"]},│
+        │    {"from": "Coordinator",                     │
+        │     "to": "ResponseGenerator"},                │
+        │  ]                                              │
+        │                                                  │
+        │  Return: merged workspace  ◄─── Gửi tới       │
+        │          ResponseGenerator                      │
+        └──────┬───────────────────────────────────────────┘
+               │ workspace + context
+               │
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  RESPONSE GENERATOR AGENT (Synthesize)          │
+        │                                                  │
+        │  Input: {                                       │
+        │    "user_input": "So sánh LangGraph vs CrewAI", │
+        │    "kb_context": "LangGraph is...",            │
+        │    "search_results": "CrewAI is...",           │
+        │    "analysis": "Strengths: ...",               │
+        │    "plan": "Next steps..."                      │
+        │  }                                              │
+        │                                                  │
+        │  LLM synthesize prompt:                         │
+        │  "Tổng hợp thông tin từ KB, Search, Analysis  │
+        │   để trả lời user. Ưu tiên: KB > Analysis     │
+        │   > Search. Format: [So sánh kiến trúc,        │
+        │   ưu/nhược điểm, use cases]"                   │
+        │                                                  │
+        │  Output: comprehensive response:               │
+        │  "LangGraph là một directed-graph framework... │
+        │   So với CrewAI, LangGraph cung cấp...        │
+        │   [so sánh chi tiết]"                          │
+        │                                                  │
+        │  + metadata: {                                  │
+        │    "call_graph": [...],                        │
+        │    "agents_used": 5,                           │
+        │    "total_time": 1.47s,                        │
+        │  }                                              │
+        └──────┬───────────────────────────────────────────┘
+               │
+               ▼
+        ┌──────────────────────────────────────────────────┐
+        │  FINAL OUTPUT with CALL GRAPH                    │
+        │                                                  │
+        │  Chatbot > LangGraph là một directed-graph    │
+        │            framework từ LangChain...           │
+        │            [so sánh chi tiết]                   │
+        │                                                  │
+        │  ┌──────────────────────────────────┐           │
+        │  │ CALL GRAPH                       │           │
+        │  ├──────────────────────────────────┤           │
+        │  │ ① IntentClassifier               │           │
+        │  │    └─> Router (5 agents)         │           │
+        │  │         ├─> KB Agent ......245ms │           │
+        │  │         ├─> Search Agent ...380ms│           │
+        │  │         ├─> Analyst Agent .520ms │           │
+        │  │         ├─> Planner Agent .180ms │           │
+        │  │         └─> Validator Agent150ms │           │
+        │  │    └─> Coordinator (merge)       │           │
+        │  │         └─> ResponseGenerator    │           │
+        │  │ Total: 1.47s                     │           │
+        │  └──────────────────────────────────┘           │
+        └──────────────────────────────────────────────────┘
+```
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+## 🔑 KEY DIFFERENCES (v1 vs v3)
+
+### v1 — Sequential (Tuần Tự)
+```
+Orchestrator → Tool1 → Agent1 (wait)
+            → Tool2 → Agent2 (wait)
+            → Tool3 → Agent3 (wait)
+            
+Total: 245 + 380 + 520 = 1145ms
+```
+
+### v3 — Parallel (Song Song)
+```
+Orchestrator → [ThreadPoolExecutor]
+     ├─→ Tool1 → Agent1 (start)
+     ├─→ Tool2 → Agent2 (start)
+     ├─→ Tool3 → Agent3 (start)
+     └─→ Tool4 → Agent4 (start)
+     
+All run together → max(timings) = 520ms
+→ 2x faster!
+```
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+## 🎯 XEM CODE CHI TIẾT
+
+### v1 Flow Diagram:
+```
+Orchestrator.invoke()
+    ↓
+resp.tool_calls (list)
+    ↓
+Tool Router (for loop)
+    ├─ tool_call["name"] = "search_agent"
+    │  → AGENT_FN["search_agent"](args)
+    │     → agent_search(query)
+    │        → Tavily API / KB search
+    │           → result
+    │
+    ├─ tool_call["name"] = "calculator_agent"
+    │  → AGENT_FN["calculator_agent"](args)
+    │     → agent_calculator(expr)
+    │        → eval() with safe namespace
+    │           → result
+    │
+    └─ [more agents...]
+    ↓
+ToolMessage[] added to state
+    ↓
+should_continue() check:
+    if tool_calls AND iteration < MAX:
+        → "tools" path → loop back
+    else:
+        → "end" path
+    ↓
+Orchestrator synthesize final answer
+    ↓
+Output to user
+```
+
+📍 **Code location:**
+- Agents: Lines 40-110
+- Tool Router: Lines 203-217
+- LangGraph: Lines 229-238
+
+### v3 Flow Diagram:
+```
+IntentClassifier
+    ↓
+Router with ThreadPoolExecutor
+    │
+    ├─→ [Thread 1] KB Agent (invoke)
+    ├─→ [Thread 2] Search Agent (invoke)
+    ├─→ [Thread 3] Analyst Agent (invoke)
+    └─→ [Thread 4] Planner Agent (invoke)
+    
+    as_completed(futures):
+        collect results as they finish
+    ↓
+results = {
+    "kb": "...",
+    "search": "...",
+    "analyst": "...",
+    "planner": "..."
+}
+    ↓
+Coordinator (merge)
+    ↓
+ResponseGenerator (synthesize)
+    ↓
+Final answer + call_graph
+```
+
+📍 **Code location:**
+- Router Dispatch: Lines 820-865
+- ThreadPoolExecutor: Lines 840-880
+- Coordinator: Lines 1069-1114
+- ResponseGenerator: Lines 1117-1140
+
+═══════════════════════════════════════════════════════════════════════════════════
+```
+
