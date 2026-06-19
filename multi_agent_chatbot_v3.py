@@ -852,8 +852,18 @@ class RouterAgent(AgentBase):
                 futures["plan"] = (pool.submit(pl_agent.run, query=query, context=kb_context), pl_agent)
                 futures["val"]  = (pool.submit(val_agent.run, query=query, context=kb_context), val_agent)
 
-            elif intent in ("greet", "general"):
-                # Không cần agent nào thêm — ResponseGenerator tự trả lời
+            elif intent == "greet":
+                self._record_call("Analyst")
+                an_agent = AnalystAgent(called_by=self.NAME)
+                futures["anal"] = (pool.submit(an_agent.run, topic="greeting response", context=kb_context), an_agent)
+
+            elif intent == "general":
+                self._record_call("WebSearch")
+                self._record_call("Analyst")
+                ws_agent = WebSearchAgent(called_by=self.NAME)
+                an_agent = AnalystAgent(called_by=self.NAME)
+                futures["web"]  = (pool.submit(ws_agent.run, query=query), ws_agent)
+                futures["anal"] = (pool.submit(an_agent.run, topic=query, context=kb_context), an_agent)
                 pass
 
             # Thu kết quả
