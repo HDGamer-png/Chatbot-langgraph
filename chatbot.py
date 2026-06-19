@@ -36,6 +36,13 @@ except ImportError as e:
     print("Please ensure multi_agent_chatbot_v3.py is in the same directory.")
     sys.exit(1)
 
+# Expose provider selection for `app.py` lazy loader.
+# Default to Anthropic if ANTHROPIC_API_KEY present, else GROQ if GROQ_API_KEY present, else 'none'.
+ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+GROQ_KEY = os.getenv("GROQ_API_KEY", "").strip()
+PROVIDER = "anthropic" if ANTHROPIC_KEY else ("groq" if GROQ_KEY else "none")
+USE_GROQ = PROVIDER == "groq"
+
 def main():
     """Main entry point - delegates to v3"""
     try:
