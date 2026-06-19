@@ -870,9 +870,52 @@ def user_profile(user_id: str):
 # ══════════════════════════════════════════════════════════════════
 #  STARTUP
 # ══════════════════════════════════════════════════════════════════
+def _validate_provider_keys():
+    """Lightweight validation of configured provider API keys.
+    This only checks for presence of keys in the chatbot module and prints
+    clear guidance to stdout so deployment logs make the issue obvious.
+    """
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "chatbot_module",
+            os.path.join(os.path.dirname(__file__), "multi_agent_chatbot_v3.py"),
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception:
+        print("[WARN] Could not load chatbot module for key validation.")
+        return
+
+    groq_ok = bool(getattr(module, "GROQ_KEY", None))
+    anthropic_ok = bool(getattr(module, "ANTHROPIC_KEY", None))
+    selected = getattr(module, "PROVIDER", None) or PROVIDER or "unknown"
+
+    if selected in (None, "none", "unknown"):
+        if not (groq_ok or anthropic_ok):
+            print("[WARN] No LLM provider API key found. Set GROQ_API_KEY or ANTHROPIC_API_KEY in the host environment.")
+        else:
+            print("[INFO] Provider not explicitly selected; available providers: ", end="")
+            avail = []
+            if groq_ok:
+                avail.append("groq")
+            if anthropic_ok:
+                avail.append("anthropic")
+            print(",".join(avail))
+    else:
+        if selected == "groq" and not groq_ok:
+            print("[WARN] GROQ selected but GROQ_API_KEY not configured or empty on host.")
+        if selected == "anthropic" and not anthropic_ok:
+            print("[WARN] Anthropic selected but ANTHROPIC_API_KEY not configured or empty on host.")
+
 if __name__ == "__main__":
     print("[INFO] Starting Chatbot Web Server...")
     print("[INFO] Open http://localhost:5000 in your browser")
+    # Validate provider keys early so deployment logs show clear guidance
+    try:
+        _validate_provider_keys()
+    except Exception:
+        pass
     # Use 0.0.0.0 for Replit/production, 127.0.0.1 for local
     host = os.getenv("FLASK_HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 5000))
