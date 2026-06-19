@@ -1,0 +1,12 @@
+run = "python app.py"
+
+[env]
+PYTHONUNBUFFERED = "1"
+
+[nix]
+channel = "stable-23_11"
+packages = ["python310", "python310Packages.pip"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80

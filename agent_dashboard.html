@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangGraph Agent Dashboard v3.0</title>
+    <style>
+         :root {
+            --bg: #0b0f1a;
+            --bg2: #111827;
+            --bg3: #1a2236;
+            --border: #1e2d45;
+            --accent: #00d4ff;
+            --accent2: #7c3aed;
+            --accent3: #10b981;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-ui: 'DM Sans', 'Segoe UI', sans-serif;
+        }
+        
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        /* GRID NOISE */
+        
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: linear-gradient(rgba(0, 212, 255, .03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, .03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+        
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        /* HEADER */
+        
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 28px;
+            margin-bottom: 28px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+        }
+        
+        .header-title {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .header-title h1 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            letter-spacing: -.02em;
+            color: var(--accent);
+        }
+        
+        .header-title span {
+            font-size: .8rem;
+            color: var(--muted);
+            font-family: var(--font-mono);
+        }
+        
+        .header-badge {
+            font-family: var(--font-mono);
+            font-size: .72rem;
+            padding: 4px 10px;
+            background: rgba(0, 212, 255, .08);
+            border: 1px solid rgba(0, 212, 255, .25);
+            border-radius: 20px;
+            color: var(--accent);
+        }
+        /* UPLOAD ZONE */
+        
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .2s;
+            margin-bottom: 28px;
+            background: var(--bg2);
+        }
+        
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(0, 212, 255, .04);
+        }
+        
+        .upload-zone.drag {
+            border-color: var(--accent);
+            background: rgba(0, 212, 255, .08);
+        }
+        
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+        
+        .upload-zone p {
+            color: var(--muted);
+            font-size: .9rem;
+        }
+        
+        .upload-zone strong {
+            color: var(--text);
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        /* STATS ROW */
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        
+        .stat-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: border-color .2s;
+        }
+        
+        .stat-card:hover {
+            border-color: var(--accent);
+        }
+        
+        .stat-card .label {
+            font-size: .72rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+        
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+        
+        .stat-card .value.accent {
+            color: var(--accent);
+        }
+        
+        .stat-card .value.green {
+            color: var(--accent3);
+        }
+        
+        .stat-card .value.purple {
+            color: #a78bfa;
+        }
+        
+        .stat-card .value.yellow {
+            color: var(--warn);
+        }
+        /* SECTION */
+        
+        .section {
+            margin-bottom: 28px;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .section-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .section-tag {
+            font-size: .7rem;
+            padding: 2px 8px;
+            background: rgba(124, 58, 237, .15);
+            border: 1px solid rgba(124, 58, 237, .3);
+            border-radius: 12px;
+            color: #a78bfa;
+            font-family: var(--font-mono);
+        }
+        /* TURN SELECTOR */
+        
+        .turn-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .turn-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg2);
+            color: var(--muted);
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: .78rem;
+            transition: all .15s;
+        }
+        
+        .turn-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .turn-btn.active {
+            background: rgba(0, 212, 255, .12);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        /* GANTT CHART */
+        
+        .gantt-wrapper {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 180px 1fr 80px;
+            align-items: center;
+            padding: 0 16px;
+            min-height: 44px;
+            border-bottom: 1px solid var(--border);
+            transition: background .15s;
+        }
+        
+        .gantt-row:hover {
+            background: rgba(255, 255, 255, .02);
+        }
+        
+        .gantt-row.header {
+            background: var(--bg3);
+        }
+        
+        .gantt-label {
+            font-family: var(--font-mono);
+            font-size: .78rem;
+            color: var(--text);
+        }
+        
+        .gantt-label.muted {
+            color: var(--muted);
+            font-size: .72rem;
+        }
+        
+        .gantt-bar-track {
+            position: relative;
+            height: 20px;
+        }
+        
+        .gantt-bar {
+            position: absolute;
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            font-size: .68rem;
+            font-family: var(--font-mono);
+            color: #fff;
+            transition: opacity .2s;
+            cursor: default;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        
+        .gantt-bar:hover {
+            opacity: .85;
+        }
+        
+        .gantt-dur {
+            font-family: var(--font-mono);
+            font-size: .78rem;
+            color: var(--muted);
+            text-align: right;
+        }
+        /* AGENT COLORS */
+        
+        .c-intent {
+            background: linear-gradient(90deg, #0284c7, #0ea5e9);
+        }
+        
+        .c-kb {
+            background: linear-gradient(90deg, #059669, #10b981);
+        }
+        
+        .c-router {
+            background: linear-gradient(90deg, #7c3aed, #8b5cf6);
+        }
+        
+        .c-web {
+            background: linear-gradient(90deg, #d97706, #f59e0b);
+        }
+        
+        .c-calc {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+        }
+        
+        .c-dt {
+            background: linear-gradient(90deg, #0d9488, #14b8a6);
+        }
+        
+        .c-analyst {
+            background: linear-gradient(90deg, #9333ea, #c084fc);
+        }
+        
+        .c-response {
+            background: linear-gradient(90deg, #0369a1, #0ea5e9);
+        }
+        
+        .c-persist {
+            background: linear-gradient(90deg, #475569, #64748b);
+        }
+        
+        .c-default {
+            background: linear-gradient(90deg, #334155, #475569);
+        }
+        /* CALL GRAPH */
+        
+        .call-graph-svg {
+            width: 100%;
+            overflow: visible;
+        }
+        /* TABLE */
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th {
+            background: var(--bg3);
+            padding: 10px 14px;
+            text-align: left;
+            font-size: .72rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .data-table td {
+            padding: 10px 14px;
+            font-size: .82rem;
+            border-bottom: 1px solid rgba(255, 255, 255, .04);
+            font-family: var(--font-mono);
+        }
+        
+        .data-table tr:hover td {
+            background: rgba(255, 255, 255, .02);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: .68rem;
+            font-weight: 500;
+        }
+        
+        .badge-blue {
+            background: rgba(14, 165, 233, .15);
+            color: #38bdf8;
+        }
+        
+        .badge-green {
+            background: rgba(16, 185, 129, .15);
+            color: #34d399;
+        }
+        
+        .badge-purple {
+            background: rgba(139, 92, 246, .15);
+            color: #a78bfa;
+        }
+        
+        .badge-yellow {
+            background: rgba(245, 158, 11, .15);
+            color: #fbbf24;
+        }
+        /* CHAT HISTORY */
+        
+        .chat-history {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .chat-turn {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .chat-turn-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: var(--bg3);
+            cursor: pointer;
+        }
+        
+        .chat-turn-header:hover {
+            background: rgba(0, 212, 255, .06);
+        }
+        
+        .chat-bubble {
+            padding: 14px 16px;
+        }
+        
+        .chat-bubble.user {
+            border-left: 3px solid var(--accent3);
+        }
+        
+        .chat-bubble.bot {
+            border-left: 3px solid var(--accent);
+        }
+        
+        .chat-role {
+            font-size: .7rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+        
+        .chat-text {
+            font-size: .88rem;
+            line-height: 1.65;
+            white-space: pre-wrap;
+        }
+        /* NO DATA */
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: var(--muted);
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        
+        .empty-state .icon {
+            font-size: 2.5rem;
+            margin-bottom: 14px;
+        }
+        /* SCROLLBAR */
+        
+         ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+         ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+        
+         ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        
+         ::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 900px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- HEADER -->
+        <header>
+            <div class="header-title">
+                <h1>⚡ LangGraph Agent Dashboard</h1>
+                <span>Multi-Agent Timing · Call Graph · Chat History Viewer</span>
+            </div>
+            <span class="header-badge">v3.0 — Hoàng Minh Đức</span>
+        </header>
+
+        <!-- UPLOAD -->
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📂</div>
+            <p><strong>Kéo thả</strong> hoặc click để mở file session JSON</p>
+            <p style="margin-top:8px; font-size:.78rem;">Từ thư mục <code style="color:var(--accent)">chat_history/session_*.json</code></p>
+            <input type="file" id="fileInput" accept=".json">
+        </div>
+
+        <!-- STATS ROW -->
+        <div class="stats-row" id="statsRow" style="display:none">
+            <div class="stat-card">
+                <div class="label">Session ID</div>
+                <div class="value accent" id="statSession" style="font-size:1rem"></div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Tổng Turns</div>
+                <div class="value accent" id="statTurns">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Agent Calls</div>
+                <div class="value green" id="statCalls">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Avg Turn Time</div>
+                <div class="value yellow" id="statAvgTime">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Fastest Agent</div>
+                <div class="value purple" id="statFastest">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Slowest Agent</div>
+                <div class="value" style="color:var(--danger)" id="statSlowest">-</div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT (hidden until loaded) -->
+        <div id="mainContent" style="display:none">
+
+            <!-- TURN SELECTOR -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>📋 Chọn Turn để phân tích</h2>
+                    <span class="section-tag">TURN SELECTOR</span>
+                </div>
+                <div class="turn-selector" id="turnSelector"></div>
+            </div>
+
+            <!-- GANTT CHART -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>⏱ Agent Timeline (Gantt)</h2>
+                    <span class="section-tag">TIMING ANALYSIS</span>
+                </div>
+                <div class="gantt-wrapper" id="ganttChart"></div>
+            </div>
+
+            <!-- GRID: CALL GRAPH + AGENT STATS TABLE -->
+            <div class="grid-2">
+                <!-- CALL GRAPH -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2>🔗 Agent Call Graph</h2>
+                        <span class="section-tag">DEPENDENCY</span>
+                    </div>
+                    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px" id="callGraphViz"></div>
+                </div>
+
+                <!-- AGENT STATS -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2>📊 Cumulative Agent Stats</h2>
+                        <span class="section-tag">ALL TURNS</span>
+                    </div>
+                    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+                        <table class="data-table" id="agentStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Agent</th>
+                                    <th>Calls</th>
+                                    <th>Avg Time</th>
+                                    <th>Max Time</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agentStatsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHAT HISTORY -->
+            <div class="section">
+                <div class="section-header">
+                    <h2>💬 Lịch sử hội thoại</h2>
+                    <span class="section-tag">CHAT LOG</span>
+                </div>
+                <div class="chat-history" id="chatHistory"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════
+        //  DATA + STATE
+        // ══════════════════════════════════════════
+        let sessionData = null;
+        let currentTurn = 0;
+
+        const AGENT_COLORS = {
+            IntentClassifier: 'c-intent',
+            KnowledgeBase: 'c-kb',
+            Router: 'c-router',
+            WebSearch: 'c-web',
+            Calculator: 'c-calc',
+            DateTime: 'c-dt',
+            Analyst: 'c-analyst',
+            ResponseGenerator: 'c-response',
+            Persistence: 'c-persist',
+        };
+
+        function agentClass(name) {
+            return AGENT_COLORS[name] || 'c-default';
+        }
+
+        // ══════════════════════════════════════════
+        //  FILE LOADING
+        // ══════════════════════════════════════════
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            uploadZone.classList.add('drag');
+        });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+        uploadZone.addEventListener('drop', e => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag');
+            const file = e.dataTransfer.files[0];
+            if (file) loadFile(file);
+        });
+        fileInput.addEventListener('change', e => {
+            if (e.target.files[0]) loadFile(e.target.files[0]);
+        });
+
+        function loadFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    sessionData = JSON.parse(e.target.result);
+                    uploadZone.style.display = 'none';
+                    renderAll();
+                } catch (err) {
+                    alert('Lỗi parse JSON: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ══════════════════════════════════════════
+        //  RENDER ALL
+        // ══════════════════════════════════════════
+        function renderAll() {
+            if (!sessionData) return;
+            document.getElementById('statsRow').style.display = 'grid';
+            document.getElementById('mainContent').style.display = 'block';
+
+            renderStats();
+            renderTurnSelector();
+            selectTurn(0);
+            renderAgentStats();
+            renderChatHistory();
+        }
+
+        // ══════════════════════════════════════════
+        //  STATS ROW
+        // ══════════════════════════════════════════
+        function renderStats() {
+            const turns = sessionData.turns || [];
+            document.getElementById('statSession').textContent = sessionData.session_id || '-';
+            document.getElementById('statTurns').textContent = turns.length;
+
+            let totalCalls = 0;
+            let totalTime = 0;
+            const agentStats = sessionData.agent_stats || {};
+
+            Object.values(agentStats).forEach(s => {
+                totalCalls += s.calls;
+                totalTime += s.total_time;
+            });
+            const avgTurn = turns.length > 0 ? totalTime / turns.length : 0;
+
+            document.getElementById('statCalls').textContent = totalCalls;
+            document.getElementById('statAvgTime').textContent = avgTurn.toFixed(2) + 's';
+
+            // Fastest / Slowest by avg_time
+            let fastest = '-',
+                slowest = '-',
+                minT = Infinity,
+                maxT = 0;
+            Object.entries(agentStats).forEach(([k, s]) => {
+                if (s.avg_time < minT) {
+                    minT = s.avg_time;
+                    fastest = k;
+                }
+                if (s.avg_time > maxT) {
+                    maxT = s.avg_time;
+                    slowest = k;
+                }
+            });
+            document.getElementById('statFastest').textContent = fastest;
+            document.getElementById('statSlowest').textContent = slowest;
+        }
+
+        // ══════════════════════════════════════════
+        //  TURN SELECTOR
+        // ══════════════════════════════════════════
+        function renderTurnSelector() {
+            const container = document.getElementById('turnSelector');
+            container.innerHTML = '';
+            (sessionData.turns || []).forEach((t, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'turn-btn' + (i === 0 ? ' active' : '');
+                btn.textContent = `Turn ${t.turn_id}: ${t.user_query.slice(0, 28)}...`;
+                btn.onclick = () => selectTurn(i);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectTurn(index) {
+            currentTurn = index;
+            document.querySelectorAll('.turn-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === index);
+            });
+            const turn = (sessionData.turns || [])[index];
+            if (turn) {
+                renderGantt(turn);
+                renderCallGraph(turn);
+            }
+        }
+
+        // ══════════════════════════════════════════
+        //  GANTT CHART
+        // ══════════════════════════════════════════
+        function renderGantt(turn) {
+            const timings = turn.agent_timings || [];
+            if (!timings.length) {
+                document.getElementById('ganttChart').innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Không có dữ liệu timing</p></div>';
+                return;
+            }
+
+            const minTs = Math.min(...timings.map(t => t.start_ts));
+            const maxEnd = Math.max(...timings.map(t => t.end_ts));
+            const span = maxEnd - minTs || 1;
+
+            let html = `
+    <div class="gantt-row header">
+      <div class="gantt-label muted">Agent</div>
+      <div class="gantt-label muted">Timeline</div>
+      <div class="gantt-label muted" style="text-align:right">Duration</div>
+    </div>`;
+
+            timings.forEach(t => {
+                const left = ((t.start_ts - minTs) / span * 100).toFixed(1);
+                const width = Math.max((t.duration / span * 100), 2).toFixed(1);
+                const cls = agentClass(t.agent);
+                html += `
+      <div class="gantt-row">
+        <div class="gantt-label">${t.agent}</div>
+        <div class="gantt-bar-track">
+          <div class="gantt-bar ${cls}" style="left:${left}%;width:${width}%" title="${t.agent}: ${t.duration.toFixed(3)}s">
+            ${width > 8 ? t.duration.toFixed(3)+'s' : ''}
+          </div>
+        </div>
+        <div class="gantt-dur">${t.duration.toFixed(3)}s</div>
+      </div>`;
+            });
+
+            document.getElementById('ganttChart').innerHTML = html;
+        }
+
+        // ══════════════════════════════════════════
+        //  CALL GRAPH (SVG)
+        // ══════════════════════════════════════════
+        function renderCallGraph(turn) {
+            const container = document.getElementById('callGraphViz');
+            const timings = turn.agent_timings || [];
+            const callGraph = turn.call_graph || [];
+
+            if (!timings.length) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">🔗</div><p>Không có call graph</p></div>';
+                return;
+            }
+
+            // Build node list in order
+            const nodeNames = [];
+            const seen = new Set();
+            callGraph.forEach(e => {
+                if (!seen.has(e.from)) {
+                    seen.add(e.from);
+                    nodeNames.push(e.from);
+                }
+                if (!seen.has(e.to)) {
+                    seen.add(e.to);
+                    nodeNames.push(e.to);
+                }
+            });
+
+            const W = 460,
+                nodeW = 120,
+                nodeH = 36,
+                hGap = 70;
+            const rows = [];
+            const levelOf = {};
+
+            // BFS level assignment
+            const adj = {};
+            callGraph.forEach(e => {
+                adj[e.from] = adj[e.from] || [];
+                adj[e.from].push(e.to);
+            });
+            const roots = nodeNames.filter(n => !callGraph.find(e => e.to === n));
+            const queue = roots.map(r => ({
+                n: r,
+                l: 0
+            }));
+            while (queue.length) {
+                const {
+                    n,
+                    l
+                } = queue.shift();
+                if (levelOf[n] !== undefined) continue;
+                levelOf[n] = l;
+                (adj[n] || []).forEach(c => queue.push({
+                    n: c,
+                    l: l + 1
+                }));
+            }
+            nodeNames.forEach(n => {
+                if (levelOf[n] === undefined) levelOf[n] = 0;
+            });
+
+            const maxLevel = Math.max(...Object.values(levelOf));
+            const levelNodes = {};
+            nodeNames.forEach(n => {
+                const l = levelOf[n];
+                levelNodes[l] = levelNodes[l] || [];
+                levelNodes[l].push(n);
+            });
+
+            // Positions
+            const posOf = {};
+            const totalH = (maxLevel + 1) * (nodeH + hGap);
+            Object.entries(levelNodes).forEach(([level, nodes]) => {
+                const y = parseInt(level) * (nodeH + hGap) + 20;
+                const colW = W / (nodes.length);
+                nodes.forEach((n, i) => {
+                    posOf[n] = {
+                        x: colW * i + colW / 2 - nodeW / 2,
+                        y
+                    };
+                });
+            });
+
+            // Timing lookup
+            const timingMap = {};
+            timings.forEach(t => timingMap[t.agent] = t);
+
+            // Build SVG
+            let edgeSVG = '';
+            callGraph.forEach(e => {
+                const s = posOf[e.from],
+                    d = posOf[e.to];
+                if (!s || !d) return;
+                const x1 = s.x + nodeW / 2,
+                    y1 = s.y + nodeH;
+                const x2 = d.x + nodeW / 2,
+                    y2 = d.y;
+                const cy = (y1 + y2) / 2;
+                edgeSVG += `<path d="M${x1},${y1} C${x1},${cy} ${x2},${cy} ${x2},${y2}"
+      fill="none" stroke="rgba(0,212,255,.3)" stroke-width="1.5"
+      marker-end="url(#arrow)"/>`;
+            });
+
+            let nodeSVG = '';
+            Object.entries(posOf).forEach(([name, pos]) => {
+                        const t = timingMap[name];
+                        const dur = t ? `${t.duration.toFixed(3)}s` : '';
+                        const fill = name === 'GraphEntry' ? 'rgba(16,185,129,.15)' : 'rgba(0,212,255,.06)';
+                        const stroke = name === 'GraphEntry' ? '#10b981' : 'rgba(0,212,255,.3)';
+                        nodeSVG += `
+      <rect x="${pos.x}" y="${pos.y}" width="${nodeW}" height="${nodeH}"
+        rx="6" fill="${fill}" stroke="${stroke}" stroke-width="1.2"/>
+      <text x="${pos.x + nodeW/2}" y="${pos.y + 15}" text-anchor="middle"
+        fill="#e2e8f0" font-family="JetBrains Mono,monospace" font-size="10">
+        ${name.length > 16 ? name.slice(0,14)+'…' : name}
+      </text>
+      ${dur ? `<text x="${pos.x + nodeW/2}" y="${pos.y + 28}" text-anchor="middle"
+        fill="#64748b" font-family="JetBrains Mono,monospace" font-size="9">${dur}</text>` : ''}`;
+  });
+
+  const svgH = totalH + 60;
+  container.innerHTML = `
+    <svg viewBox="0 0 ${W} ${svgH}" width="100%" style="overflow:visible">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="rgba(0,212,255,.5)"/>
+        </marker>
+      </defs>
+      ${edgeSVG}
+      ${nodeSVG}
+    </svg>`;
+}
+
+// ══════════════════════════════════════════
+//  AGENT STATS TABLE
+// ══════════════════════════════════════════
+function renderAgentStats() {
+  const stats  = sessionData.agent_stats || {};
+  const tbody  = document.getElementById('agentStatsBody');
+  tbody.innerHTML = '';
+
+  const sorted = Object.entries(stats).sort((a,b) => b[1].total_time - a[1].total_time);
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Chưa có dữ liệu</td></tr>';
+    return;
+  }
+  const maxTotal = sorted[0][1].total_time;
+  sorted.forEach(([name, s]) => {
+    const pct = (s.total_time / maxTotal * 100).toFixed(0);
+    const bar = `<div style="background:rgba(0,212,255,.15);border-radius:3px;height:4px;margin-top:4px">
+      <div style="background:var(--accent);height:100%;width:${pct}%;border-radius:3px"></div></div>`;
+    tbody.innerHTML += `
+      <tr>
+        <td><span class="badge badge-blue">${name}</span></td>
+        <td>${s.calls}</td>
+        <td>${s.avg_time.toFixed(3)}s</td>
+        <td>${s.max_time.toFixed(3)}s</td>
+        <td>${s.total_time.toFixed(3)}s${bar}</td>
+      </tr>`;
+  });
+}
+
+// ══════════════════════════════════════════
+//  CHAT HISTORY
+// ══════════════════════════════════════════
+function renderChatHistory() {
+  const turns   = sessionData.turns || [];
+  const container = document.getElementById('chatHistory');
+  container.innerHTML = '';
+
+  if (!turns.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>Chưa có hội thoại</p></div>';
+    return;
+  }
+
+  turns.forEach((t, i) => {
+    const intentBadge = t.intent ? `<span class="badge badge-purple">${t.intent}</span>` : '';
+    const totalDur = (t.agent_timings || []).reduce((s, a) => s + a.duration, 0);
+    const durBadge = `<span class="badge badge-yellow">${totalDur.toFixed(2)}s</span>`;
+    const ts = t.timestamp ? new Date(t.timestamp).toLocaleTimeString('vi-VN') : '';
+
+    const div = document.createElement('div');
+    div.className = 'chat-turn';
+    div.innerHTML = `
+      <div class="chat-turn-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <span style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted)">
+          Turn ${t.turn_id} · ${ts}
+        </span>
+        <div style="display:flex;gap:8px;align-items:center">${intentBadge}${durBadge}</div>
+      </div>
+      <div>
+        <div class="chat-bubble user">
+          <div class="chat-role">👤 Người dùng</div>
+          <div class="chat-text">${escHtml(t.user_query)}</div>
+        </div>
+        <div class="chat-bubble bot">
+          <div class="chat-role">🤖 Chatbot</div>
+          <div class="chat-text">${escHtml(t.final_answer || '')}</div>
+        </div>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════
+//  DEMO DATA (chạy offline không cần file)
+// ══════════════════════════════════════════
+function loadDemo() {
+  const demo = {
+    session_id: "demo_20260522_120000",
+    created_at: "2026-05-22T12:00:00",
+    model_fast: "claude-haiku-4-5-20251001",
+    model_main: "claude-sonnet-4-20250514",
+    agent_stats: {
+      IntentClassifier:   {calls:2, total_time:0.42, avg_time:0.21, max_time:0.25},
+      KnowledgeBase:      {calls:2, total_time:0.04, avg_time:0.02, max_time:0.03},
+      Router:             {calls:2, total_time:0.08, avg_time:0.04, max_time:0.05},
+      WebSearch:          {calls:1, total_time:1.85, avg_time:1.85, max_time:1.85},
+      Calculator:         {calls:1, total_time:0.01, avg_time:0.01, max_time:0.01},
+      ResponseGenerator:  {calls:2, total_time:3.60, avg_time:1.80, max_time:2.10},
+      Persistence:        {calls:2, total_time:0.06, avg_time:0.03, max_time:0.04},
+    },
+    turns: [
+      {
+        turn_id: 1, timestamp: "2026-05-22T12:00:05",
+        user_query: "LangGraph là gì? Tại sao nên dùng cho production?",
+        intent: "langgraph",
+        final_answer: "## LangGraph\n\nLangGraph là framework xây dựng **Multi-Agent** dưới dạng **Directed Graph**.\n\n- **Node** = Agent hoặc hàm xử lý\n- **Edge** = luồng dữ liệu\n- **State** = TypedDict chạy xuyên suốt\n\nPhù hợp production nhờ tính tất định cao và State Observability.",
+        agent_timings: [
+          {agent:"IntentClassifier", start_ts:1716379205.0, end_ts:1716379205.21, duration:0.210, called_by:"GraphEntry", calls:[]},
+          {agent:"KnowledgeBase",    start_ts:1716379205.21,end_ts:1716379205.23, duration:0.020, called_by:"IntentClassifier", calls:[]},
+          {agent:"Router",           start_ts:1716379205.23,end_ts:1716379205.27, duration:0.040, called_by:"KnowledgeBase", calls:["KnowledgeBase"]},
+          {agent:"ResponseGenerator",start_ts:1716379205.27,end_ts:1716379206.97, duration:1.700, called_by:"Router", calls:["Claude-Sonnet"]},
+          {agent:"Persistence",      start_ts:1716379206.97,end_ts:1716379207.00, duration:0.030, called_by:"ResponseGenerator", calls:[]},
+        ],
+        call_graph: [
+          {from:"GraphEntry",to:"IntentClassifier"},{from:"IntentClassifier",to:"KnowledgeBase"},
+          {from:"KnowledgeBase",to:"Router"},{from:"Router",to:"ResponseGenerator"},
+          {from:"ResponseGenerator",to:"Persistence"},
+        ]
+      },
+      {
+        turn_id: 2, timestamp: "2026-05-22T12:01:10",
+        user_query: "Tính 1024 * 768 + sqrt(2048)",
+        intent: "calculate",
+        final_answer: "Kết quả tính toán:\n\n**1024 × 768 + √2048 = 786,476.25**\n\nChi tiết:\n- 1024 × 768 = 786,432\n- √2048 ≈ 45.25\n- Tổng = **786,477.25**",
+        agent_timings: [
+          {agent:"IntentClassifier", start_ts:1716379270.0, end_ts:1716379270.21, duration:0.210, called_by:"GraphEntry", calls:[]},
+          {agent:"KnowledgeBase",    start_ts:1716379270.21,end_ts:1716379270.23, duration:0.020, called_by:"IntentClassifier", calls:[]},
+          {agent:"Router",           start_ts:1716379270.23,end_ts:1716379270.27, duration:0.040, called_by:"KnowledgeBase", calls:["Calculator"]},
+          {agent:"Calculator",       start_ts:1716379270.27,end_ts:1716379270.28, duration:0.010, called_by:"Router", calls:[]},
+          {agent:"ResponseGenerator",start_ts:1716379270.28,end_ts:1716379272.18, duration:1.900, called_by:"Router", calls:["Claude-Sonnet"]},
+          {agent:"Persistence",      start_ts:1716379272.18,end_ts:1716379272.21, duration:0.030, called_by:"ResponseGenerator", calls:[]},
+        ],
+        call_graph: [
+          {from:"GraphEntry",to:"IntentClassifier"},{from:"IntentClassifier",to:"KnowledgeBase"},
+          {from:"KnowledgeBase",to:"Router"},{from:"Router",to:"Calculator"},
+          {from:"Router",to:"ResponseGenerator"},{from:"ResponseGenerator",to:"Persistence"},
+        ]
+      }
+    ]
+  };
+  sessionData = demo;
+  uploadZone.style.display = 'none';
+  renderAll();
+}
+
+// Load demo on startup
+window.onload = loadDemo;
+    </script>
+</body>
+
+</html>

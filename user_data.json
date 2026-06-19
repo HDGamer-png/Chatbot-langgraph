@@ -1,0 +1,12 @@
+{
+  "test_user_123": {
+    "name": "Test User",
+    "email": "test@user.com",
+    "updated_at": "2026-06-05T01:47:02.138806"
+  },
+  "HD": {
+    "name": "Đ",
+    "email": "",
+    "updated_at": "2026-06-09T08:43:47.807421"
+  }
+}

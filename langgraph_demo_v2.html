@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LangGraph AI Agent — Demo v2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.12.0/tabler-icons.min.css" />
+<style>
+/* ── Reset & Variables ── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-deep:#060a12;
+  --bg-panel:#0d1420;
+  --bg-card:#111827;
+  --bg-input:#0a0f1a;
+  --border:#1e2d47;
+  --border-glow:#1e4080;
+  --accent:#3b82f6;
+  --accent2:#60a5fa;
+  --accent-glow:rgba(59,130,246,.18);
+  --green:#22c55e;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --text-1:#f0f6ff;
+  --text-2:#94a3b8;
+  --text-3:#4a6285;
+  --font-sans:'Sora',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+  --radius:10px;
+  --radius-sm:6px;
+}
+
+body{
+  font-family:var(--font-sans);
+  background:var(--bg-deep);
+  color:var(--text-1);
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+/* ── Topbar ── */
+.topbar{
+  display:flex;align-items:center;gap:14px;
+  padding:11px 20px;
+  background:var(--bg-panel);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.logo{
+  width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+  box-shadow:0 0 14px rgba(59,130,246,.4);
+}
+.topbar-info{flex:1}
+.topbar-title{font-size:14px;font-weight:600;color:var(--text-1);letter-spacing:-.3px}
+.topbar-sub{font-size:11px;color:var(--text-3);margin-top:1px;font-family:var(--font-mono)}
+.badge{
+  font-size:10px;font-family:var(--font-mono);font-weight:500;
+  padding:3px 9px;border-radius:20px;
+  border:1px solid;
+}
+.badge.online{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.08)}
+.badge.mock{border-color:var(--amber);color:var(--amber);background:rgba(245,158,11,.08)}
+
+/* ── Layout ── */
+.main{
+  display:grid;
+  grid-template-columns:240px 1fr 280px;
+  flex:1;
+  overflow:hidden;
+}
+
+/* ── Left Sidebar — Graph Nodes ── */
+.sidebar-left{
+  border-right:1px solid var(--border);
+  background:var(--bg-panel);
+  padding:14px 12px;
+  display:flex;flex-direction:column;gap:10px;
+  overflow-y:auto;
+}
+.sidebar-section{
+  font-size:9px;font-weight:600;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--text-3);
+  margin-bottom:2px;
+}
+.node-card{
+  padding:9px 10px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.node-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--border);
+  transition:background .2s;
+}
+.node-card.active::before{background:var(--accent)}
+.node-card.done::before{background:var(--green)}
+.node-label{
+  font-size:11px;font-weight:500;color:var(--text-2);
+  font-family:var(--font-mono);display:flex;align-items:center;gap:6px;
+}
+.node-desc{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.4}
+.node-status{
+  display:flex;align-items:center;gap:5px;margin-top:5px;
+  font-size:10px;font-family:var(--font-mono);
+}
+.status-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--border);transition:background .3s;
+}
+.status-dot.idle{background:var(--text-3)}
+.status-dot.running{background:var(--amber);animation:glow-amber 1s infinite}
+.status-dot.done{background:var(--green);animation:glow-green .5s ease}
+@keyframes glow-amber{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 6px var(--amber)}}
+@keyframes glow-green{0%{box-shadow:0 0 8px var(--green)}100%{box-shadow:none}}
+
+/* State box */
+.state-box{
+  margin-top:auto;
+  padding:10px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--bg-input);
+}
+.state-row{display:flex;flex-direction:column;gap:1px;margin-bottom:6px}
+.state-key{font-size:9px;font-family:var(--font-mono);color:var(--text-3);text-transform:uppercase}
+.state-val{font-size:11px;font-family:var(--font-mono);color:var(--accent2);font-weight:500}
+
+/* ── Center — Chat ── */
+.chat-area{
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  background:var(--bg-deep);
+}
+
+/* Exec pipeline bar */
+.pipeline-bar{
+  display:flex;align-items:center;gap:0;
+  border-bottom:1px solid var(--border);
+  padding:0 16px;background:var(--bg-panel);
+  height:36px;flex-shrink:0;overflow:hidden;
+}
+.pipe-step{
+  display:flex;align-items:center;gap:6px;
+  padding:0 10px;font-size:10px;
+  font-family:var(--font-mono);
+  color:var(--text-3);border-right:1px solid var(--border);
+  height:100%;transition:color .2s;
+  white-space:nowrap;
+}
+.pipe-step:last-child{border-right:none}
+.pipe-step.active{color:var(--amber)}
+.pipe-step.done{color:var(--green)}
+.pipe-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:currentColor;transition:background .2s;
+}
+.pipe-step.active .pipe-dot{animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Messages */
+.messages{
+  flex:1;overflow-y:auto;
+  padding:20px 24px;
+  display:flex;flex-direction:column;gap:14px;
+  scroll-behavior:smooth;
+}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-track{background:transparent}
+.messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.msg-row{display:flex;gap:10px;align-items:flex-start;animation:slideUp .2s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg-row.user-row{flex-direction:row-reverse}
+
+.avatar{
+  width:30px;height:30px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;flex-shrink:0;
+}
+.avatar.bot-av{
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  box-shadow:0 0 10px rgba(59,130,246,.3);
+}
+.avatar.user-av{
+  background:var(--bg-card);border:1px solid var(--border);
+  color:var(--text-2);font-size:11px;
+}
+
+.bubble{
+  max-width:68%;padding:11px 14px;border-radius:12px;
+  font-size:13px;line-height:1.7;
+  border:1px solid var(--border);background:var(--bg-card);
+  color:var(--text-1);
+}
+.user-row .bubble{
+  background:linear-gradient(135deg,#1d4ed8,#2563eb);
+  border-color:#3b82f6;color:#fff;
+}
+.bubble h1,.bubble h2,.bubble h3{font-size:14px;font-weight:600;margin:.5em 0 .3em;color:var(--accent2)}
+.bubble strong,.bubble b{font-weight:600;color:var(--text-1)}
+.bubble p{margin:.3em 0}
+.bubble ul,.bubble ol{padding-left:1.2em;margin:.3em 0}
+.bubble li{margin:.2em 0}
+.bubble code{
+  font-family:var(--font-mono);font-size:11px;
+  background:rgba(59,130,246,.1);padding:1px 5px;
+  border-radius:3px;color:var(--accent2);
+}
+.bubble pre code{display:block;padding:8px;overflow-x:auto;background:var(--bg-input);border-radius:6px}
+.bubble hr{border:none;border-top:1px solid var(--border);margin:.6em 0}
+.bubble em,.bubble i{color:var(--text-2)}
+.bubble a{color:var(--accent2);text-decoration:none}
+
+.thinking{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 13px;border-radius:10px;
+  border:1px solid var(--border);background:var(--bg-card);
+  font-size:12px;color:var(--text-3);
+  font-family:var(--font-mono);
+}
+.think-dots span{
+  display:inline-block;width:4px;height:4px;
+  border-radius:50%;background:var(--accent);margin:0 2px;
+  animation:throb .9s infinite;
+}
+.think-dots span:nth-child(2){animation-delay:.2s}
+.think-dots span:nth-child(3){animation-delay:.4s}
+@keyframes throb{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:1;transform:scale(1.4)}}
+
+.step-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-family:var(--font-mono);
+  color:var(--accent);background:var(--accent-glow);
+  padding:2px 8px;border-radius:20px;border:1px solid var(--accent);
+  margin-left:6px;animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Suggestions */
+.suggestions{
+  display:flex;gap:6px;padding:10px 18px 0;flex-wrap:wrap;
+}
+.sug-btn{
+  font-size:11px;font-family:var(--font-sans);
+  padding:5px 12px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--border);
+  color:var(--text-2);background:var(--bg-card);
+  transition:all .15s;white-space:nowrap;
+}
+.sug-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+
+/* Input */
+.input-area{
+  padding:12px 18px 14px;
+  border-top:1px solid var(--border);
+  background:var(--bg-panel);
+}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.input-wrap{
+  flex:1;display:flex;align-items:center;
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius);padding:2px 4px 2px 14px;
+  transition:border-color .2s;
+}
+.input-wrap:focus-within{border-color:var(--accent)}
+.input-wrap textarea{
+  flex:1;background:none;border:none;outline:none;
+  color:var(--text-1);font-family:var(--font-sans);font-size:13px;
+  line-height:1.5;resize:none;padding:7px 0;
+  min-height:36px;max-height:100px;
+}
+.input-wrap textarea::placeholder{color:var(--text-3)}
+.send-btn{
+  padding:9px 18px;border-radius:var(--radius-sm);
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  color:#fff;border:none;cursor:pointer;
+  font-family:var(--font-sans);font-size:13px;font-weight:500;
+  transition:opacity .15s;display:flex;align-items:center;gap:6px;
+  align-self:flex-end;
+}
+.send-btn:hover{opacity:.85}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.char-hint{font-size:10px;color:var(--text-3);margin-top:4px;font-family:var(--font-mono)}
+
+/* ── Right Sidebar — Details ── */
+.sidebar-right{
+  border-left:1px solid var(--border);
+  background:var(--bg-panel);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-tabs{
+  display:flex;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.tab-btn{
+  flex:1;padding:9px 6px;font-size:11px;font-weight:500;
+  color:var(--text-3);cursor:pointer;border:none;background:none;
+  transition:color .15s;font-family:var(--font-sans);
+  border-bottom:2px solid transparent;
+}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.panel-body{
+  flex:1;overflow-y:auto;padding:12px;
+  display:none;
+}
+.panel-body.active{display:block}
+.panel-body::-webkit-scrollbar{width:3px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* Log entries */
+.log-entry{
+  padding:8px 10px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--bg-card);
+  margin-bottom:6px;
+  font-size:10px;font-family:var(--font-mono);
+  animation:fadeIn .2s ease;
+}
+.log-node{color:var(--accent);font-weight:500;display:block;margin-bottom:3px}
+.log-detail{color:var(--text-2);line-height:1.5}
+.log-time{color:var(--text-3);font-size:9px;float:right}
+
+/* Reasoning chain */
+.chain-block{
+  padding:9px 11px;border-radius:var(--radius-sm);
+  border:1px solid var(--border-glow);background:var(--bg-input);
+  margin-bottom:8px;font-size:11px;line-height:1.6;
+  color:var(--text-2);
+}
+.chain-block strong{color:var(--accent2)}
+
+/* Stats */
+.stat-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:var(--text-3)}
+.stat-val{color:var(--text-1);font-family:var(--font-mono);font-weight:500}
+
+/* Feature chips */
+.feature-chips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.chip{
+  font-size:10px;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--border);color:var(--text-2);
+  background:var(--bg-card);font-family:var(--font-mono);
+}
+.chip.on{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.07)}
+.chip.off{border-color:var(--text-3);color:var(--text-3)}
+
+/* Mobile responsive */
+@media(max-width:900px){
+  .main{grid-template-columns:1fr}
+  .sidebar-left,.sidebar-right{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">🤖</div>
+  <div class="topbar-info">
+    <div class="topbar-title">LangGraph AI Agent — Demo v2.0</div>
+    <div class="topbar-sub">RAG + Memory 3 lớp · ReAct · Multi-Agent · Deep Reasoning</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="badge mock" id="llm-badge">⚡ MockLLM</span>
+    <span class="badge" id="search-badge" style="border-color:var(--text-3);color:var(--text-3)">🔍 Search: off</span>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+  <!-- LEFT: Graph Nodes -->
+  <div class="sidebar-left">
+    <div class="sidebar-section">Graph Workflow</div>
+
+    <div class="node-card" id="nc1">
+      <div class="node-label"><i class="ti ti-filter"></i> intent_classifier</div>
+      <div class="node-desc">Phân loại ý định người dùng</div>
+      <div class="node-status">
+        <div class="status-dot idle" id="nd1"></div>
+        <span id="ns1" style="font-family:var(--font-mono);font-size:10px;color:var(--text-3)">idle</span>
+      </div>
+    </div>
+
+    <div class="node-card" id="nc2">
+      <div class="node-label"><i class="ti ti-database"></i> memory_retriever</div>
+      <div class="node-desc">RAG · Knowledge base · Lịch sử</div>
+      <div class="node-status">
+        <div class="status-dot idle" id="nd2"></div>
+        <span id="ns2" style="font-family:var(--font-mono);font-size:10px;color:var(--text-3)">idle</span>
+      </div>
+    </div>
+
+    <div class="node-card" id="nc3">
+      <div class="node-label"><i class="ti ti-world-search"></i> web_search_agent</div>
+      <div class="node-desc">Tìm kiếm web thực (Tavily)</div>
+      <div class="node-status">
+        <div class="status-dot idle" id="nd3"></div>
+        <span id="ns3" style="font-family:var(--font-mono);font-size:10px;color:var(--text-3)">idle</span>
+      </div>
+    </div>
+
+    <div class="node-card" id="nc4">
+      <div class="node-label"><i class="ti ti-brain"></i> react_agent</div>
+      <div class="node-desc">Thought → Action → Observation</div>
+      <div class="node-status">
+        <div class="status-dot idle" id="nd4"></div>
+        <span id="ns4" style="font-family:var(--font-mono);font-size:10px;color:var(--text-3)">idle</span>
+      </div>
+    </div>
+
+    <div class="node-card" id="nc5">
+      <div class="node-label"><i class="ti ti-sparkles"></i> response_generator</div>
+      <div class="node-desc">Deep Reasoning · Tổng hợp</div>
+      <div class="node-status">
+        <div class="status-dot idle" id="nd5"></div>
+        <span id="ns5" style="font-family:var(--font-mono);font-size:10px;color:var(--text-3)">idle</span>
+      </div>
+    </div>
+
+    <div class="node-card" id="nc6">
+      <div class="node-label"><i class="ti ti-device-floppy"></i> memory_writer</div>
+      <div class="node-desc">Async write-back · State update</div>
+      <div class="node-status">
+        <div class="status-dot idle" id="nd6"></div>
+        <span id="ns6" style="font-family:var(--font-mono);font-size:10px;color:var(--text-3)">idle</span>
+      </div>
+    </div>
+
+    <!-- State display -->
+    <div class="state-box" style="margin-top:12px">
+      <div class="sidebar-section" style="margin-bottom:8px">TypedDict State</div>
+      <div class="state-row"><div class="state-key">intent</div><div class="state-val" id="sv-intent">—</div></div>
+      <div class="state-row"><div class="state-key">iteration</div><div class="state-val" id="sv-iter">0</div></div>
+      <div class="state-row"><div class="state-key">buffer</div><div class="state-val" id="sv-buf">0 msgs</div></div>
+      <div class="state-row"><div class="state-key">last_action</div><div class="state-val" id="sv-act">—</div></div>
+    </div>
+  </div>
+
+  <!-- CENTER: Chat -->
+  <div class="chat-area">
+    <!-- Pipeline bar -->
+    <div class="pipeline-bar">
+      <div class="pipe-step" id="p1"><div class="pipe-dot"></div>classify</div>
+      <div class="pipe-step" id="p2"><div class="pipe-dot"></div>retrieve</div>
+      <div class="pipe-step" id="p3"><div class="pipe-dot"></div>search</div>
+      <div class="pipe-step" id="p4"><div class="pipe-dot"></div>react</div>
+      <div class="pipe-step" id="p5"><div class="pipe-dot"></div>generate</div>
+      <div class="pipe-step" id="p6"><div class="pipe-dot"></div>write-back</div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages">
+      <div class="msg-row">
+        <div class="avatar bot-av">🤖</div>
+        <div class="bubble">
+          <strong>Xin chào! Tôi là LangGraph AI Agent v2.0</strong><br><br>
+          Tôi được xây dựng với kiến trúc <strong>Multi-Agent + ReAct + RAG + Memory 3 lớp</strong>.<br><br>
+          <strong>Tôi có thể:</strong><br>
+          🔍 <strong>Tìm kiếm thông tin</strong> (web + knowledge base)<br>
+          🧠 <strong>Suy nghĩ sâu</strong> và lập luận đa bước<br>
+          📊 <strong>Phân tích</strong> và so sánh chi tiết<br>
+          🔢 <strong>Tính toán</strong> chính xác<br>
+          💬 <strong>Trò chuyện</strong> với memory đa lượt<br><br>
+          <em>Hãy hỏi tôi về LangGraph, ReAct, Memory, RAG, hoặc bất cứ điều gì!</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggestions -->
+    <div class="suggestions" id="suggestions">
+      <button class="sug-btn" onclick="ask(this.textContent)">LangGraph là gì?</button>
+      <button class="sug-btn" onclick="ask(this.textContent)">So sánh LangGraph vs CrewAI</button>
+      <button class="sug-btn" onclick="ask(this.textContent)">Giải thích ReAct từng bước</button>
+      <button class="sug-btn" onclick="ask(this.textContent)">Memory 3 lớp hoạt động thế nào?</button>
+      <button class="sug-btn" onclick="ask(this.textContent)">Tính 1024 * 768</button>
+      <button class="sug-btn" onclick="ask(this.textContent)">Phân tích ưu nhược điểm RAG</button>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrap">
+          <textarea id="qinput" placeholder="Nhập câu hỏi... (Enter để gửi, Shift+Enter xuống dòng)"
+            rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        </div>
+        <button class="send-btn" id="send-btn" onclick="send()">
+          <i class="ti ti-send"></i> Gửi
+        </button>
+      </div>
+      <div class="char-hint" id="char-hint">Hỗ trợ: tìm kiếm · tính toán · phân tích · suy luận · trò chuyện</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Details Panel -->
+  <div class="sidebar-right">
+    <div class="panel-tabs">
+      <button class="tab-btn active" onclick="switchTab('log',this)">Log</button>
+      <button class="tab-btn" onclick="switchTab('reasoning',this)">Suy luận</button>
+      <button class="tab-btn" onclick="switchTab('stats',this)">Stats</button>
+    </div>
+
+    <div class="panel-body active" id="tab-log">
+      <div style="font-size:10px;color:var(--text-3);margin-bottom:8px;font-family:var(--font-mono)">
+        Execution log — vòng lặp hiện tại
+      </div>
+      <div id="log-container">
+        <div style="font-size:11px;color:var(--text-3);text-align:center;padding:20px">
+          Chưa có log. Gửi câu hỏi để bắt đầu.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-body" id="tab-reasoning">
+      <div style="font-size:10px;color:var(--text-3);margin-bottom:8px;font-family:var(--font-mono)">
+        Chuỗi suy luận ReAct
+      </div>
+      <div id="reasoning-container">
+        <div style="font-size:11px;color:var(--text-3);text-align:center;padding:20px">
+          Chuỗi suy luận sẽ hiển thị tại đây.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-body" id="tab-stats">
+      <div style="font-size:10px;color:var(--text-3);margin-bottom:10px;font-family:var(--font-mono)">
+        Session statistics
+      </div>
+      <div class="stat-row"><span class="stat-label">Tổng queries</span><span class="stat-val" id="stat-total">0</span></div>
+      <div class="stat-row"><span class="stat-label">Memory buffer</span><span class="stat-val" id="stat-buf">0 msgs</span></div>
+      <div class="stat-row"><span class="stat-label">Topics đã hỏi</span><span class="stat-val" id="stat-topics">—</span></div>
+      <div class="stat-row"><span class="stat-label">Thời gian TB</span><span class="stat-val" id="stat-time">—</span></div>
+      <div class="stat-row"><span class="stat-label">LLM Engine</span><span class="stat-val" id="stat-llm">Claude API</span></div>
+
+      <div style="margin-top:14px">
+        <div class="sidebar-section" style="margin-bottom:8px">Tính năng hoạt động</div>
+        <div class="feature-chips">
+          <div class="chip on" id="feat-chat">💬 Trò chuyện</div>
+          <div class="chip on" id="feat-calc">🔢 Tính toán</div>
+          <div class="chip on" id="feat-kb">📚 Knowledge Base</div>
+          <div class="chip on" id="feat-react">⚡ ReAct</div>
+          <div class="chip on" id="feat-memory">🧠 Memory</div>
+          <div class="chip off" id="feat-web">🔍 Web Search</div>
+          <div class="chip off" id="feat-deep">🌊 Deep Reasoning</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   KNOWLEDGE BASE
+════════════════════════════════════════ */
+const KB = {
+  langgraph:[
+    "LangGraph là framework xây dựng Multi-Agent dựa trên Đồ thị có hướng (Directed Graph). Mỗi Node là một Agent hoặc hàm xử lý, Edge định nghĩa luồng dữ liệu.",
+    "LangGraph dùng TypedDict để khai báo State tường minh — chạy xuyên suốt qua tất cả Nodes. Đây là điểm khác biệt cốt lõi so với CrewAI.",
+    "Cơ chế Reducer xử lý Race Condition khi nhiều Node song song cùng ghi vào State. Ví dụ: operator.add nối list thay vì ghi đè.",
+    "LangGraph hỗ trợ Human-in-the-loop: dừng graph giữa chừng, cho người dùng xác nhận, rồi chạy tiếp — tính năng sống còn cho enterprise.",
+    "Phù hợp Production: tính tất định cao, State Observability, fallback node, và parallel Fan-out/Fan-in.",
+    "Cấu trúc: add_node() → add_edge() → set_entry_point() → compile(). Có thể dùng conditional_edges() cho rẽ nhánh phức tạp.",
+  ],
+  crewai:[
+    "CrewAI dùng hướng khai báo (Declarative): định nghĩa Agent với Role/Goal/Tools, giao Task, framework tự điều phối.",
+    "CrewAI phù hợp Prototyping/PoC: đường cong học tập thấp, ra demo nhanh trong vài giờ.",
+    "async_execution=True cho Task song song. Bộ nhớ Short/Long-term/Entity tích hợp sẵn, dễ bật bằng config.",
+    "Hạn chế: khó can thiệp sâu vào luồng xử lý, không có cơ chế pause/rewind như LangGraph.",
+    "Chiến lược: dùng CrewAI để prove concept → chuyển LangGraph khi vào production enterprise.",
+  ],
+  react:[
+    "ReAct = Reasoning and Acting: vòng lặp Thought → Action → Observation cho đến khi có Final Answer.",
+    "Thought: LLM phân tích ngữ cảnh, quyết định gọi tool nào. Action: thực thi tool. Observation: nhận kết quả, tiếp tục.",
+    "Hard limit max_iterations = 5 tránh vòng lặp vô hạn khi tool liên tục lỗi.",
+    "ReAct ép LLM 'nghĩ lớn tiếng' trước khi hành động — giảm đáng kể lỗi logic và hallucination.",
+    "Pydantic validate JSON output của LLM trước khi truyền vào Tool Registry.",
+  ],
+  memory:[
+    "3 lớp bộ nhớ: Short-term (sliding window, n tin nhắn gần nhất), Long-term (Vector DB + RAG), State (Blackboard JSON).",
+    "Memory Dispatcher chỉ nạp đúng thông tin cần thiết — không full-load. Giảm Hallucination hiệu quả.",
+    "State JSON thay vì natural language: cắt ~90% token đầu vào để duy trì ngữ cảnh tác vụ.",
+    "Async Write-back: tách luồng ghi Vector DB khỏi luồng phản hồi chính — tránh bottleneck.",
+    "Tự động Summarize khi buffer >4000 tokens — kiểm soát chi phí API chủ động.",
+  ],
+  rag:[
+    "RAG = Retrieval-Augmented Generation: tích hợp Vector DB để LLM truy cập kiến thức ngoài training data.",
+    "Quy trình: Embed tài liệu → lưu Vector DB → query → Cosine Similarity → nạp k chunks liên quan vào prompt.",
+    "RAG giải quyết LLM outdated và context window giới hạn — chỉ lấy phần liên quan, không nhồi toàn bộ.",
+    "Local: ChromaDB, FAISS. Cloud production: Pinecone, Weaviate. Hybrid Search = Semantic + BM25.",
+  ],
+  multiagent:[
+    "Multi-Agent chia tác vụ phức tạp cho nhiều Agent chuyên biệt — tránh quá tải ngữ cảnh một Agent duy nhất.",
+    "4 mô hình: Sequential (pipeline), Hierarchical (manager-worker), State-Graph (LangGraph), Conversational (AutoGen).",
+    "Parallel execution: cải thiện tốc độ 1.3x–4.15x. Lỗi khuếch đại 4.4x (Orchestrated) vs 17.2x (Independent).",
+    "Fan-out/Fan-in: Manager phân công N subtask → N Workers song song → Reducer merge kết quả nguyên tử.",
+  ],
+  greet:[
+    "Xin chào! Tôi là Chatbot AI Agent v2.0 xây dựng với LangGraph.",
+    "Tôi hỗ trợ: tìm kiếm, suy luận, phân tích, tính toán, trò chuyện đa lượt.",
+  ],
+};
+
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+let busy = false;
+let bufSize = 0;
+let totalQueries = 0;
+let topicSet = new Set();
+let timings = [];
+let reasoningLog = [];
+let apiMode = false; // Sẽ bật khi Claude API trả về thành công
+
+/* ════════════════════════════════════════
+   INTENT CLASSIFIER
+════════════════════════════════════════ */
+function classify(q){
+  q = q.toLowerCase();
+  if(/xin chào|hello|hi\b|chào\b|hey/.test(q)) return 'greet';
+  if(/langgraph|lang graph|đồ thị|graph\b|node\b|edge\b|state\b/.test(q)) return 'langgraph';
+  if(/crewai|crew ai|crew\b|prototyp/.test(q)) return 'crewai';
+  if(/\breact\b|reasoning|thought\b|observation|suy luận/.test(q)) return 'react';
+  if(/bộ nhớ|memory|short-term|long-term|dispatcher|blackboard/.test(q)) return 'memory';
+  if(/\brag\b|retrieval|chromadb|embedding|chunk/.test(q)) return 'rag';
+  if(/multi-agent|đa tác tử|parallel|song song|orchestrat/.test(q)) return 'multiagent';
+  if(/tính\b|cộng|trừ|nhân|chia|\+|\-|\*|\/|bao nhiêu|kết quả|bằng/.test(q)) return 'calculate';
+  if(/\bgiờ\b|ngày\b|thời gian|hôm nay|date\b|time\b/.test(q)) return 'datetime';
+  if(/phân tích|so sánh|đánh giá|nhận xét|ưu nhược|pros|cons/.test(q)) return 'analyze';
+  if(/tìm|search|tra cứu|thông tin về|cho biết|mới nhất/.test(q)) return 'search';
+  return 'general';
+}
+
+/* ════════════════════════════════════════
+   TOOLS
+════════════════════════════════════════ */
+function toolSearchKB(topic){
+  const chunks = KB[topic] || [];
+  if(chunks.length) return chunks.slice(0,4).map(c=>`• ${c}`).join('\n');
+  // Fuzzy search
+  for(const [k,v] of Object.entries(KB)){
+    if(topic.toLowerCase().includes(k) || k.includes(topic.toLowerCase()))
+      return v.slice(0,4).map(c=>`• ${c}`).join('\n');
+  }
+  return 'Không tìm thấy thông tin liên quan trong knowledge base.';
+}
+
+function toolCalculate(expr){
+  const replacements={
+    'cộng':'+','trừ':'-','nhân':'*','chia':'/',
+    '×':'*','÷':'/','−':'-','mũ':'**',
+    'bình phương':'**2','phần trăm':'/100',
+  };
+  let clean = expr;
+  for(const [vi,en] of Object.entries(replacements)) clean=clean.replaceAll(vi,en);
+  const safe = clean.replace(/[^0-9+\-*/.()\s%^]/g,'').replace(/\^/g,'**');
+  if(!safe.trim()){
+    const nums = expr.match(/\d+\.?\d*/g);
+    const ops = expr.match(/[+\-*/×÷]/);
+    if(nums?.length>=2 && ops){
+      const op = ops[0].replace('×','*').replace('÷','/');
+      try{
+        const res = eval(`${nums[0]}${op}${nums[1]}`);
+        return `**${nums[0]} ${op} ${nums[1]}** = **${res}**`;
+      }catch{}
+    }
+    return `Không thể phân tích: "${expr}"`;
+  }
+  try{
+    const res = eval(safe);
+    const fmt = Number.isInteger(res) ? res.toLocaleString() : res.toFixed(6).replace(/\.?0+$/,'');
+    return `**${safe.trim()}** = **${fmt}**`;
+  }catch(e){
+    return `Lỗi tính toán: ${e.message}`;
+  }
+}
+
+function toolDateTime(){
+  const now = new Date();
+  const days = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+  const months = ['','tháng 1','tháng 2','tháng 3','tháng 4','tháng 5','tháng 6',
+                   'tháng 7','tháng 8','tháng 9','tháng 10','tháng 11','tháng 12'];
+  return `🕐 **Thời gian:** ${now.toLocaleTimeString('vi-VN')}\n📅 **Ngày:** ${days[now.getDay()]}, ngày ${now.getDate()} ${months[now.getMonth()+1]} ${now.getFullYear()}\n📍 **Múi giờ:** UTC+7 (Việt Nam)`;
+}
+
+/* ════════════════════════════════════════
+   CLAUDE API (Real LLM)
+════════════════════════════════════════ */
+async function callClaude(messages, systemPrompt, maxTokens=1500){
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: messages,
+      })
+    });
+    if(!resp.ok){
+      const err = await resp.json();
+      console.warn('Claude API error:',err);
+      return null;
+    }
+    const data = await resp.json();
+    apiMode = true;
+    document.getElementById('llm-badge').textContent = '✨ Claude API';
+    document.getElementById('llm-badge').className = 'badge online';
+    document.getElementById('stat-llm').textContent = 'claude-sonnet-4-6';
+    document.getElementById('feat-deep').className = 'chip on';
+    document.getElementById('feat-deep').textContent = '🌊 Deep Reasoning';
+    return data.content?.map(b=>b.text||'').join('') || null;
+  }catch(e){
+    console.warn('Claude API unreachable:',e.message);
+    return null;
+  }
+}
+
+/* ════════════════════════════════════════
+   ANSWER BUILDER (Mock fallback)
+════════════════════════════════════════ */
+function buildMockAnswer(q, intent, context, obs){
+  if(intent==='greet') return `## Xin chào! 👋\n\nTôi là **LangGraph AI Agent v2.0**.\n\n**Tôi có thể:**\n- 🔍 Tìm kiếm thông tin (web + knowledge base)\n- 🧠 Suy nghĩ sâu và lập luận đa bước\n- 📊 Phân tích và so sánh\n- 🔢 Tính toán chính xác\n- 💬 Trò chuyện với memory đa lượt\n\n**Chủ đề tôi hiểu sâu:** LangGraph, CrewAI, ReAct, Memory, RAG, Multi-Agent\n\n*Hỏi tôi bất cứ điều gì!*`;
+  if(intent==='calculate') return `## 🔢 Kết quả Tính toán\n\n${obs}`;
+  if(intent==='datetime') return `## ⏰ Thời Gian Hiện Tại\n\n${obs}`;
+
+  const chunks = (context||'').split('\n').filter(l=>l.trim()&&l.startsWith('•'));
+  if(!chunks.length) return `Tôi chưa có đủ thông tin về: *"${q.slice(0,60)}"*\n\nThử hỏi về: **LangGraph**, **CrewAI**, **ReAct**, **Memory**, **RAG**, **Multi-Agent**.`;
+
+  let ans = `## Về chủ đề: *${q.slice(0,55)}*\n\n`;
+  chunks.slice(0,4).forEach((c,i)=>{
+    ans += `**${i+1}.** ${c.replace(/^•\s*/,'')}\n\n`;
+  });
+  if(intent==='analyze'){
+    ans += `\n### 🔍 Phân tích\n\nDựa trên thông tin trên, có thể nhận thấy:\n- Đây là chủ đề quan trọng trong hệ thống AI Agent hiện đại\n- Cần cân nhắc trade-off giữa độ phức tạp và khả năng kiểm soát\n- Lựa chọn phụ thuộc vào yêu cầu cụ thể của dự án\n\n`;
+  }
+  ans += `---\n*💡 Hỏi thêm để biết chi tiết hơn về bất kỳ điểm nào.*`;
+  return ans;
+}
+
+/* ════════════════════════════════════════
+   PROCESS QUERY (Main pipeline)
+════════════════════════════════════════ */
+async function processQuery(q){
+  const t0 = performance.now();
+  const intent = classify(q);
+  topicSet.add(intent);
+
+  // ── Node 1: Intent Classifier ──
+  await animateNode(1,'running','Phân loại...');
+  await delay(350);
+  animateNode(1,'done',intent);
+  setSV(intent,'0',`${bufSize} msgs`,'—');
+  addLog('intent_classifier',`Query: "${q.slice(0,35)}" → intent: "${intent}"`);
+
+  // ── Node 2: Memory Retriever ──
+  animateNode(2,'running','Truy vấn KB...');
+  await delay(400);
+  const context = toolSearchKB(intent);
+  animateNode(2,'done',`${context.split('\n').length} chunks`);
+  addLog('memory_retriever',`${context.split('\n').length} chunks | buf=${bufSize}`);
+  setSV(intent,'0',`${bufSize} msgs`,'search_knowledge');
+
+  // ── Node 3: Web Search Agent ──
+  animateNode(3,'running','Kiểm tra...');
+  await delay(300);
+  const needsSearch = /tìm|search|mới nhất|2024|2025|2026/.test(q.toLowerCase()) && intent==='search';
+  animateNode(3,'done', needsSearch ? 'searching...' : 'skip');
+  addLog('web_search_agent', needsSearch ? 'Kích hoạt web search' : 'Bỏ qua (không cần)');
+
+  // ── Node 4: ReAct Agent ──
+  animateNode(4,'running','Thought→Action...');
+  let thought = '';
+  let action = 'search_knowledge';
+  let observation = context;
+
+  if(intent==='calculate'){
+    action = 'calculate'; observation = toolCalculate(q);
+  } else if(intent==='datetime'){
+    action = 'get_datetime'; observation = toolDateTime();
+  }
+
+  thought = `Phân tích query "${q.slice(0,40)}" với intent "${intent}". Quyết định gọi tool "${action}".`;
+  await delay(500);
+  animateNode(4,'done',`iter=1 | ${action}`);
+  setSV(intent,'1',`${bufSize} msgs`,action);
+  addLog('react_agent',`Thought: "${thought.slice(0,60)}" | Action: ${action}()`);
+
+  // Update reasoning panel
+  const chain = `**Vòng lặp 1:**\n- **Thought:** ${thought}\n- **Action:** \`${action}()\`\n- **Observation:** ${observation.slice(0,100)}...`;
+  reasoningLog.push(chain);
+  updateReasoningPanel(chain);
+
+  // ── Node 5: Response Generator ──
+  animateNode(5,'running','Generating...');
+  await delay(200);
+
+  // Try Claude API for deep reasoning
+  let answer = null;
+  const history = getHistory();
+  const system = `Bạn là LangGraph AI Agent v2.0 thông minh. Trả lời bằng tiếng Việt, dùng markdown đẹp.
+Bạn có khả năng: tìm kiếm, suy luận sâu, phân tích, tính toán, trò chuyện.
+Trả lời đầy đủ và sâu sắc. Dùng các tiêu đề, bullet points, bold để dễ đọc.`;
+
+  const apiMessages = [
+    ...history,
+    {
+      role:'user',
+      content:`Câu hỏi: ${q}\n\n=== KNOWLEDGE BASE ===\n${context}\n\n=== TOOL OBSERVATION ===\n${observation}\n\nHãy trả lời đầy đủ và sâu sắc.`
+    }
+  ];
+
+  answer = await callClaude(apiMessages, system, 1200);
+  if(!answer) answer = buildMockAnswer(q, intent, context, observation);
+
+  animateNode(5,'done',`${answer.length} chars`);
+  addLog('response_generator',`Đã tạo câu trả lời (${answer.length} ký tự) | API=${apiMode}`);
+
+  // ── Node 6: Memory Writer ──
+  animateNode(6,'running','Write-back...');
+  bufSize += 2;
+  totalQueries++;
+  historyBuffer.push({role:'user',content:q});
+  historyBuffer.push({role:'assistant',content:answer.slice(0,400)});
+  if(historyBuffer.length > 20) historyBuffer = historyBuffer.slice(-16);
+
+  await delay(200);
+  animateNode(6,'done','✓');
+  setSV(intent,'1',`${bufSize} msgs`,'done ✓');
+  addLog('memory_writer',`buf=${bufSize} | total=${totalQueries} | topics=[${[...topicSet].join(',')}]`);
+
+  // Update stats
+  const elapsed = (performance.now()-t0)/1000;
+  timings.push(elapsed);
+  updateStats(elapsed);
+
+  return answer;
+}
+
+/* ════════════════════════════════════════
+   HISTORY BUFFER
+════════════════════════════════════════ */
+let historyBuffer = [];
+function getHistory(){
+  return historyBuffer.slice(-8).map(m=>({role:m.role, content:m.content.slice(0,300)}));
+}
+
+/* ════════════════════════════════════════
+   UI HELPERS
+════════════════════════════════════════ */
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function animateNode(i, state, label=''){
+  const dot = document.getElementById(`nd${i}`);
+  const span = document.getElementById(`ns${i}`);
+  const card = document.getElementById(`nc${i}`);
+  const pipe = document.getElementById(`p${i}`);
+  dot.className = `status-dot ${state}`;
+  span.textContent = label || state;
+  span.style.color = state==='running'?'var(--amber)':state==='done'?'var(--green)':'var(--text-3)';
+  card.className = `node-card ${state==='done'?'done':state==='running'?'active':''}`;
+  if(pipe){
+    pipe.className = `pipe-step ${state==='done'?'done':state==='running'?'active':''}`;
+  }
+}
+
+function resetNodes(){
+  for(let i=1;i<=6;i++){
+    animateNode(i,'idle','idle');
+    document.getElementById(`nc${i}`).className='node-card';
+    const p=document.getElementById(`p${i}`);
+    if(p) p.className='pipe-step';
+  }
+}
+
+function setSV(intent,iter,buf,act){
+  document.getElementById('sv-intent').textContent = intent||'—';
+  document.getElementById('sv-iter').textContent = iter;
+  document.getElementById('sv-buf').textContent = buf;
+  document.getElementById('sv-act').textContent = act||'—';
+}
+
+function addLog(node, detail){
+  const c = document.getElementById('log-container');
+  // Clear placeholder
+  if(c.querySelector('div[style*="text-align:center"]')) c.innerHTML='';
+  const el = document.createElement('div');
+  el.className='log-entry';
+  el.innerHTML=`<span class="log-node"><span class="log-time">${new Date().toLocaleTimeString()}</span>${node}</span><div class="log-detail">${detail}</div>`;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+}
+
+function updateReasoningPanel(chain){
+  const c = document.getElementById('reasoning-container');
+  if(c.querySelector('div[style*="text-align:center"]')) c.innerHTML='';
+  const el = document.createElement('div');
+  el.className='chain-block';
+  el.innerHTML = chain
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`(.*?)`/g,'<code>$1</code>')
+    .replace(/\n/g,'<br>');
+  c.prepend(el);
+}
+
+function updateStats(elapsed){
+  document.getElementById('stat-total').textContent = totalQueries;
+  document.getElementById('stat-buf').textContent = `${bufSize} msgs`;
+  document.getElementById('stat-topics').textContent = [...topicSet].join(', ')||'—';
+  const avg = timings.reduce((a,b)=>a+b,0)/timings.length;
+  document.getElementById('stat-time').textContent = `${avg.toFixed(2)}s`;
+}
+
+function addUserMsg(text){
+  const div = document.createElement('div');
+  div.className='msg-row user-row';
+  div.innerHTML=`<div class="avatar user-av">Bạn</div><div class="bubble">${escHtml(text)}</div>`;
+  document.getElementById('messages').appendChild(div);
+  scrollChat();
+}
+
+let thinkEl = null;
+function showThinking(){
+  thinkEl = document.createElement('div');
+  thinkEl.className='msg-row';
+  thinkEl.id='thinking';
+  thinkEl.innerHTML=`<div class="avatar bot-av">🤖</div>
+  <div class="thinking">
+    Đang xử lý qua 6 Nodes&nbsp;
+    <span class="think-dots"><span></span><span></span><span></span></span>
+    <span id="think-step" class="step-badge" style="display:none"></span>
+  </div>`;
+  document.getElementById('messages').appendChild(thinkEl);
+  scrollChat();
+}
+function updateThinkStep(s){
+  const el = document.getElementById('think-step');
+  if(el){el.style.display='inline-flex';el.textContent=s;}
+}
+function removeThinking(){
+  const el = document.getElementById('thinking');
+  if(el) el.remove();
+}
+
+function addBotMsg(html){
+  const div = document.createElement('div');
+  div.className='msg-row';
+  div.innerHTML=`<div class="avatar bot-av">🤖</div><div class="bubble">${markdownToHtml(html)}</div>`;
+  document.getElementById('messages').appendChild(div);
+  scrollChat();
+}
+
+function scrollChat(){
+  const m=document.getElementById('messages');
+  m.scrollTop=m.scrollHeight;
+}
+
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function markdownToHtml(md){
+  return md
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^#### (.+)$/gm,'<h4>$1</h4>')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/`(.*?)`/g,'<code>$1</code>')
+    .replace(/^---$/gm,'<hr>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/<\/li>\n<li>/g,'</li><li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\n\n+/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+
+function switchTab(id, btn){
+  document.querySelectorAll('.panel-body').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,100)+'px';
+}
+
+function handleKey(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}
+}
+
+/* ════════════════════════════════════════
+   MAIN SEND
+════════════════════════════════════════ */
+async function send(){
+  if(busy) return;
+  const inp = document.getElementById('qinput');
+  const q = inp.value.trim();
+  if(!q) return;
+  inp.value='';inp.style.height='auto';
+  busy=true;
+  document.getElementById('send-btn').disabled=true;
+
+  // Clear log panel for new query
+  document.getElementById('log-container').innerHTML='';
+
+  addUserMsg(q);
+  showThinking();
+  resetNodes();
+
+  try{
+    const answer = await processQuery(q);
+    removeThinking();
+    addBotMsg(answer);
+  }catch(e){
+    removeThinking();
+    addBotMsg(`**Lỗi xử lý:** ${e.message}`);
+    console.error(e);
+  }
+
+  busy=false;
+  document.getElementById('send-btn').disabled=false;
+  inp.focus();
+}
+
+function ask(text){
+  document.getElementById('qinput').value=text;
+  send();
+}
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+document.getElementById('qinput').focus();
+
+// Try Claude API on load (silent)
+(async()=>{
+  const r = await callClaude([{role:'user',content:'ping'}],'Reply only: pong',10);
+  if(r){
+    document.getElementById('feat-deep').className='chip on';
+    document.getElementById('feat-web').className='chip on';
+    document.getElementById('feat-web').textContent='🌐 Claude API';
+  }
+})();
+</script>
+</body>
+</html>

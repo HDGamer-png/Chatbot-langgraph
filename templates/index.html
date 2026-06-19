@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangGraph Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0d0d0d;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: #1a1a1a;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 255, 200, 0.1);
+            overflow: hidden;
+            border: 1px solid rgba(0, 255, 200, 0.1);
+        }
+        
+        .header {
+            background: #0f0f0f;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid rgba(0, 255, 200, 0.3);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .header-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .status-pill {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            color: white;
+            font-size: 13px;
+        }
+
+        .status-pill span {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 999px;
+            backdrop-filter: blur(8px);
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .user-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .user-panel input {
+            min-width: 130px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            background: #2a2a2a;
+            color: #e0e0e0;
+            font-size: 13px;
+        }
+
+        .user-panel button {
+            background: #00d4ff;
+            color: #000;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .action-row button {
+            color: #00d4ff;
+            background: #121212;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 120px;
+            font-weight: 500;
+        }
+
+        .action-row select {
+            color: #e0e0e0;
+            background: #2a2a2a;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            border-radius: 999px;
+            padding: 10px 14px;
+            min-width: 180px;
+            cursor: pointer;
+        }
+
+        .action-row button:hover,
+        .action-row select:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #121212;
+        }
+        
+        .message {
+            display: flex;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+            line-height: 1.4;
+            font-size: 14px;
+        }
+        
+        .user .message-content {
+            background: #00d4ff;
+            color: #000;
+            border-bottom-right-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .bot .message-content {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(0, 255, 200, 0.2);
+        }
+        
+        .metadata {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 4px;
+            padding: 0 8px;
+            color: #999;
+        }
+        
+        .user .metadata {
+            text-align: right;
+        }
+        
+        .loading {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        
+        .loading span {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+        
+        .loading span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .loading span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes bounce {
+            0%,
+            80%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.8;
+            }
+            40% {
+                transform: translateY(-8px);
+                opacity: 1;
+            }
+        }
+        .footer {
+            background: #0f0f0f;
+            border-top: 1px solid rgba(0, 255, 200, 0.2);
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .footer button.secondary {
+            background: #2a2a2a;
+            color: #00d4ff;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+        }
+
+        .attachment-panel {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .attachment-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(0, 212, 255, 0.15);
+            color: #e0e0e0;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            font-size: 12px;
+        }
+
+        .attachment-pill button {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .footer button.secondary:hover {
+            background: #333333;
+            transform: translateY(-1px);
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid rgba(0, 255, 200, 0.2);
+        }
+        
+        input[type="text"]:focus {
+            border-color: #00d4ff;
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+        
+        input[type="text"]::placeholder {
+            color: #9ca3af;
+        }
+
+        button {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+            background: #00e6ff;
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            background: #3a1a1a;
+            color: #ff6b6b;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border-left: 4px solid #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        .markdown-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            color: #e0e0e0;
+        }
+
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            margin: 12px 0 8px 0;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .important {
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .markdown-content h1 { font-size: 1.4em; }
+        .markdown-content h2 { font-size: 1.2em; }
+        .markdown-content h3 { font-size: 1.1em; }
+
+        .markdown-content ul, .markdown-content ol {
+            margin: 8px 0 8px 20px;
+            color: #e0e0e0;
+        }
+
+        .markdown-content li {
+            margin: 4px 0;
+            color: #e0e0e0;
+        }
+
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 0.9em;
+        }
+
+        .markdown-content table, .markdown-content th, .markdown-content td {
+            border: 1px solid rgba(0, 255, 200, 0.3);
+        }
+
+        .markdown-content th {
+            background: #2a2a2a;
+            padding: 6px;
+            text-align: left;
+            color: #00d4ff;
+        }
+
+        .markdown-content td {
+            padding: 6px;
+            color: #e0e0e0;
+        }
+
+        .markdown-content code {
+            background: #2a2a2a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #00d4ff;
+            border: 1px solid rgba(0, 255, 200, 0.2);
+        }
+
+        .markdown-content pre {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid rgba(0, 255, 200, 0.2);
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+            border: none;
+        }
+
+        .markdown-content blockquote {
+            border-left: 3px solid rgba(0, 212, 255, 0.4);
+            padding-left: 12px;
+            margin: 8px 0;
+            color: #999;
+        }
+
+        .markdown-content a {
+            color: #00d4ff;
+            text-decoration: underline;
+        }
+
+        .markdown-content a:hover {
+            color: #764ba2;
+        }
+        
+        @media (max-width: 640px) {
+            .container {
+                height: 100vh;
+                border-radius: 0;
+            }
+            .message-content {
+                max-width: 85%;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 LangGraph Chatbot</h1>
+            <p>Multi-Agent AI Assistant</p>
+            <div class="header-controls">
+                <div class="status-pill">
+                    <span id="providerStatus">Provider: loading...</span>
+                    <span id="modelStatus">Model: loading...</span>
+                    <span id="sessionStatus">History: loading...</span>
+                    <span id="userStatus">User: not set</span>
+                </div>
+                <div class="user-panel">
+                    <input id="userIdInput" type="text" placeholder="User ID" autocomplete="off" />
+                    <input id="userNameInput" type="text" placeholder="Tên" autocomplete="off" />
+                    <input id="userEmailInput" type="text" placeholder="Email" autocomplete="off" />
+                    <button id="saveUserBtn" type="button">Lưu người dùng</button>
+                    <button id="openProcessBtn" type="button">Xem tiến trình</button>
+                </div>
+                <div class="action-row">
+                    <button id="newSessionBtn" type="button">New chat</button>
+                    <select id="providerSelect"></select>
+                    <select id="sessionSelect"></select>
+                    <button id="loadSessionBtn" type="button">Tải</button>
+                    <button id="refreshSessionsBtn" type="button">Làm mới</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="messages" id="messages">
+            <div class="message bot">
+                <div>
+                    <div class="message-content">
+                        👋 Xin chào! Tôi là trợ lý AI thông minh. Hãy đặt câu hỏi bất kỳ và tôi sẽ giúp bạn!
+                    </div>
+                    <div class="metadata">Sẵn sàng</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer" id="footer">
+            <div class="input-wrapper">
+                <input type="text" id="messageInput" placeholder="Nhập câu hỏi của bạn..." autocomplete="off" />
+                <button id="sendBtn">Gửi</button>
+            </div>
+            <button id="attachBtn" type="button">Đính kèm</button>
+            <button id="clearBtn" class="secondary" type="button">Xoá chat</button>
+            <input type="file" id="fileInput" hidden multiple />
+            <div class="attachment-panel" id="attachmentList"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

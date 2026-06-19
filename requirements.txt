@@ -1,0 +1,14 @@
+Flask==3.0.0
+Flask-CORS==4.0.0
+langchain-google-genai>=1.0.0
+google-generativeai>=0.3.0
+langchain-core>=0.1.0
+langchain-anthropic>=0.1.0
+langgraph>=0.0.1
+python-dotenv>=1.0.0
+rich>=13.0.0
+anthropic>=0.25.0
+groq>=0.4.0
+requests>=2.31.0
+gunicorn>=21.0.0
+Pillow>=10.0.0
