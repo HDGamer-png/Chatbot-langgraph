@@ -10,11 +10,21 @@ app.py — Máy chủ Web Flask v4.0 (Pure Python Multi-Agent Engine)
 """
 
 import os
+import sys
 import time
 import uuid
 import json
 from datetime import datetime
 from pathlib import Path
+
+# Cấu hình UTF-8 cho Windows Terminal tránh lỗi mã hóa ký tự tiếng Việt
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from flask import Flask, request, jsonify, render_template, Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.utils import secure_filename

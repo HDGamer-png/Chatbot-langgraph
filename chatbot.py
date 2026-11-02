@@ -21,6 +21,14 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
+# Cấu hình UTF-8 cho Windows Terminal tránh lỗi mã hóa ký tự tiếng Việt
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Thêm thư mục hiện tại vào sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
