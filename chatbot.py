@@ -1,60 +1,106 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════╗
-║   LANGGRAPH MULTI-AGENT CHATBOT v3.1                                ║
-║   Main Entry Point — Production Ready                               ║
+║   LANGGRAPH MULTI-AGENT CHATBOT v4.0                                ║
+║   Pure Python Local Architecture — No API Key Required               ║
 ║                                                                      ║
 ║   Tác giả: Hoàng Minh Đức — Thực tập sinh AI Agent 2026            ║
 ║                                                                      ║
 ║   Architecture:                                                      ║
-║   • IntentClassifier → Router (ThreadPool) → Coordinator            ║
-║   • ResponseGenerator → Call Graph Trace                             ║
-║   • 10 Specialized Agents (KB, Search, Calc, Analyst, etc)         ║
-║                                                                      ║
-║   Cài đặt:                                                           ║
-║     pip install -r requirements.txt                                  ║
-║                                                                      ║
-║   Chạy:  python chatbot.py                                          ║
-║   File lưu: ./chat_history/session_<timestamp>.json                ║
-║                                                                      ║
-║   Env vars (optional):                                              ║
-║     ANTHROPIC_API_KEY=sk-ant-...  (Claude - khuyến khích)         ║
-║     GROQ_API_KEY=gsk-...          (Groq alternative)               ║
-║     TAVILY_API_KEY=tvly-...       (Web search)                     ║
+║   • PHA 1 (Song song): 6 Worker Agents (RAG, Math, Search, DateTime, ║
+║                        Analyst, Intent) qua ThreadPool              ║
+║   • PHA 2 (Tuần tự):   Planner → Validator → ResponseGenerator      ║
+║   • Storage: SQLite (chatbot.db)                                     ║
+║   • Frontend: Web UI Dark Theme + SVG Call Graph Dashboard           ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 
 import os
 import sys
+import argparse
+from datetime import datetime
 from pathlib import Path
 
-# Ensure v3 is available
-try:
-    from multi_agent_chatbot_v3 import main as run_v3_chatbot
-except ImportError as e:
-    print(f"❌ Error: Cannot import v3 chatbot. {e}")
-    print("Please ensure multi_agent_chatbot_v3.py is in the same directory.")
-    sys.exit(1)
+# Thêm thư mục hiện tại vào sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Expose provider selection for `app.py` lazy loader.
-# Default to Anthropic if ANTHROPIC_API_KEY present, else GROQ if GROQ_API_KEY present, else 'none'.
-ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-GROQ_KEY = os.getenv("GROQ_API_KEY", "").strip()
-PROVIDER = "anthropic" if ANTHROPIC_KEY else ("groq" if GROQ_KEY else "none")
-USE_GROQ = PROVIDER == "groq"
+from core.graph import handle_query
+from storage.database import ChatDatabase
+
+
+def cli_interactive():
+    """Chế độ trò chuyện tương tác trong Terminal."""
+    db = ChatDatabase("chatbot.db")
+    session_id = f"cli_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    db.create_session(session_id, user_id="cli_user")
+
+    print("\n" + "="*65)
+    print("🤖 CHATBOT AI MULTI-AGENT v4.0 (100% Pure Python Local)")
+    print(f"📁 Phiên làm việc: {session_id}")
+    print("👉 Nhập câu hỏi của bạn (hoặc gõ 'quit' / 'exit' để thoát):")
+    print("="*65 + "\n")
+
+    turn_counter = 1
+    while True:
+        try:
+            user_input = input("\n👤 Bạn: ").strip()
+            if not user_input:
+                continue
+            if user_input.lower() in ("quit", "exit", "thoat"):
+                print("\n👋 Tạm biệt! Hẹn gặp lại bạn.")
+                break
+
+            print("\n🔄 [Multi-Agent đang phối hợp xử lý...]")
+            res = handle_query(
+                session_id=session_id,
+                user_query=user_input,
+                turn_id=turn_counter,
+                user_id="cli_user",
+            )
+
+            final_answer = res.get("final_answer", "")
+            intent = res.get("intent", "general")
+            confidence = res.get("confidence_score", 0.0)
+            timings = res.get("agent_timings", [])
+
+            print(f"\n🎯 [Ý định: {intent.upper()} | Độ tin cậy: {confidence*100:.0f}%]")
+            print(f"🤖 Bot:\n{final_answer}")
+
+            # Lưu vào SQLite
+            db.append_turn(session_id, {
+                "turn_id": turn_counter,
+                "timestamp": datetime.now().isoformat(),
+                "user_query": user_input,
+                "final_answer": final_answer,
+                "intent": intent,
+                "confidence_score": confidence,
+                "agent_timings": timings,
+                "call_graph": res.get("call_graph", []),
+                "log": res.get("log", []),
+                "attachments": [],
+            })
+            turn_counter += 1
+
+        except KeyboardInterrupt:
+            print("\n\n👋 Tạm biệt!")
+            break
+        except Exception as exc:
+            print(f"\n❌ Lỗi: {exc}")
+
 
 def main():
-    """Main entry point - delegates to v3"""
-    try:
-        run_v3_chatbot()
-    except KeyboardInterrupt:
-        print("\n\nTam biệt!")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="LangGraph Multi-Agent Chatbot v4.0")
+    parser.add_argument("--web", action="store_true", help="Khởi động Web server Flask")
+    parser.add_argument("--port", type=int, default=5000, help="Cổng chạy Web server (mặc định: 5000)")
+    args = parser.parse_args()
+
+    if args.web:
+        from app import app
+        print(f"🚀 Khởi động Web Server tại port {args.port}...")
+        app.run(host="0.0.0.0", port=args.port, debug=False)
+    else:
+        cli_interactive()
+
 
 if __name__ == "__main__":
     main()

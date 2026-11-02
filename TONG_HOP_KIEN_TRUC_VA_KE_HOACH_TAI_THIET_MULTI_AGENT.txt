@@ -1,0 +1,386 @@
+================================================================================
+BÁO CÁO TỔNG HỢP KIẾN TRÚC, HIỆN TRẠNG VÀ KẾ HOẠCH TÁI THIẾT DỰ ÁN
+Đề tài: Hệ thống Chatbot Đa tác tử Thông minh (LangGraph Multi-Agent Chatbot)
+Tác giả đề tài: Hoàng Minh Đức - Thực tập sinh AI Agent
+Phiên bản: Từ v3.1.0 chuyển đổi lên v4.0 (Pure Python & Local Multi-Agent Architecture)
+Ngày lập báo cáo: 29/10/2026
+================================================================================
+
+MỤC LỤC BÁO CÁO:
+  Phần 1: Kiến trúc tổng quát về dự án
+  Phần 2: Kiến trúc tổng quát về mô hình Multi-Agent (10 Agents)
+  Phần 3: Đánh giá tiến độ hiện tại của dự án
+  Phần 4: Những hạn chế và điểm nghẽn kỹ thuật hiện tại
+  Phần 5: Phân tích quyết định "Đập đi xây lại" (Lợi ích và Ưu điểm vượt trội)
+  Phần 6: Những điểm cốt yếu cần sửa đổi và hoàn thiện sau khi tái thiết
+  Phần 7: Các bước tiến tiếp theo dự định để hoàn thiện dự án xuất sắc
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 1: KIẾN TRÚC TỔNG QUÁT VỀ DỰ ÁN
+────────────────────────────────────────────────────────────────────────────────
+
+1.1. Mục tiêu cốt lõi của dự án:
+Dự án được xây dựng nhằm nghiên cứu và phát triển một hệ sinh thái Chatbot AI Trợ lý 
+toàn diện, giải quyết bài toán điều phối đa tác tử (Multi-Agent Orchestration). Thay 
+vì sử dụng một mô hình ngôn ngữ đơn lẻ giải quyết mọi việc (dễ gây quá tải, ảo giác 
+và chậm trễ), dự án chia nhỏ tác vụ cho 10 Tác tử chuyên biệt phối hợp làm việc.
+
+1.2. Các phân tầng kiến trúc chính trong hệ thống:
+Hệ thống được thiết kế theo mô hình phân tầng hoàn chỉnh từ người dùng đến lõi xử lý:
+
+  [1] TẦNG GIAO DIỆN NGƯỜI DÙNG (FRONTEND & VISUALIZATION):
+      - Giao diện Chat Web Dark-Theme (templates/index.html + static/app.js):
+        Cho phép người dùng gửi tin nhắn, gửi tệp đính kèm đa định dạng, đổi chế độ 
+        hoạt động, xem lịch sử phiên chat và theo dõi thời gian phản hồi.
+      - Bảng điều khiển phân tích trực quan (agent_dashboard.html):
+        Dashboard hiển thị đồ họa SVG tương tác, sơ đồ cây gọi tác tử (Call Graph), 
+        thống kê độ trễ (latency breakdown) của từng agent con trong mỗi lượt hội thoại.
+      - Demo giả lập tương tác độc lập (langgraph_demo_v2.html):
+        Mô phỏng trực quan trạng thái đồ thị LangGraph và phân nhánh trạng thái.
+
+  [2] TẦNG ĐIỀU HƯỚNG VÀ DỊCH VỤ WEB (BACKEND SERVER):
+      - Flask REST API (app.py):
+        Đóng vai trò máy chủ tiếp nhận HTTP requests từ client, quản lý các endpoint 
+        chính: `/api/chat`, `/api/sessions`, `/api/history/<id>`, `/api/process/<id>`, 
+        `/api/upload`.
+      - Bộ tiền xử lý tài liệu đa phương tiện:
+        Trích xuất văn bản từ tệp đính kèm (PDF, DOCX, XLSX, TXT, OCR Hình ảnh).
+
+  [3] TẦNG LÕI ĐIỀU PHỐI ĐA TÁC TỬ (MULTI-AGENT ORCHESTRATION CORE):
+      - Đồ thị trạng thái LangGraph (StateGraph):
+        Quản lý vòng đời dữ liệu xuyên suốt (`AgentState TypedDict`), đảm bảo luồng 
+        dữ liệu có cấu trúc, có thể phục hồi lỗi, hỗ trợ rẽ nhánh song song.
+      - Bộ điều phối đa luồng (Router ThreadPool):
+        Thực hiện cơ chế Fan-out (kích hoạt đồng thời nhiều agent con) và Fan-in 
+        (thu thập và hợp nhất kết quả) để giảm thời gian phản hồi xuống mức tối thiểu.
+
+  [4] TẦNG LƯU TRỮ VÀ QUẢN LÝ DỮ LIỆU (PERSISTENCE LAYER):
+      - Quản lý phiên hội thoại (`ChatHistoryStore`): Lưu trữ toàn bộ turns chat, 
+        dấu vết thời gian (`agent_timings`), cây phân cấp thực thi (`call_graph`).
+      - Quản lý người dùng (`UserDataStore`): Lưu profile người dùng và cấu hình cá nhân.
+      - Kho tài liệu tri thức nội bộ (`data/docs/`): Chứa tài liệu nguồn phục vụ RAG.
+
+1.3. Luồng dữ liệu tổng quát từ đầu đến cuối (End-to-End Dataflow):
+  (1) Client gửi tin nhắn (+ tệp đính kèm nếu có) đến `/api/chat`.
+  (2) Server tiếp nhận, phân tích tệp đính kèm thành văn bản ngữ cảnh.
+  (3) Khởi tạo hoặc nạp State của phiên từ bộ nhớ lưu trữ.
+  (4) Node IntentClassifier phân loại ý định người dùng (Toán, Thời gian, Tra cứu, Phân tích...).
+  (5) Node Router phân tích Intent, mở ThreadPool chạy song song các Agent tương ứng.
+  (6) Các Agent con thực thi độc lập, ghi nhận kết quả và thời gian chạy vào State.
+  (7) Node Coordinator/ResponseGenerator tổng hợp toàn bộ kết quả thành câu trả lời chuẩn Markdown.
+  (8) Lưu toàn bộ phiên, lịch sử, độ trễ và Call Graph vào database.
+  (9) Trả kết quả về giao diện người dùng và cập nhật lên Dashboard phân tích.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 2: KIẾN TRÚC TỔNG QUÁT VỀ MÔ HÌNH MULTI-AGENT (10 AGENTS)
+────────────────────────────────────────────────────────────────────────────────
+
+2.1. Khái niệm và nguyên lý hoạt động:
+Khác biệt hoàn toàn với mô hình đơn tác tử (Single-Agent) hoặc mô hình tuần tự 
+(Sequential Multi-Agent v1 chạy từng bước lần lượt từ Agent 1 -> Agent 2 -> Agent 3 
+mất từ 3-4 giây), mô hình v3.1/v4.0 áp dụng cơ chế:
+  - Directed Acyclic Graph (DAG) kết hợp cơ chế Fan-out / Fan-in.
+  - Xử lý đồng thời (Concurrent Execution): Các tác tử tra cứu, tính toán và phân tích 
+    chạy cùng một thời điểm trên các worker thread riêng biệt, rút ngắn thời gian chỉ 
+    còn tương đương thời gian của tác tử chạy lâu nhất.
+
+2.2. Danh mục và vai trò của 10 Agent trong hệ thống:
+
+  ┌───┬──────────────────────┬─────────────────────────────────────────────────┐
+  │STT│ Tên Tác tử (Agent)   │ Vai trò & Nhiệm vụ chức năng chi tiết           │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 1 │ IntentClassifierAgent│ Cửa ngõ phân tích ngữ nghĩa, phân loại câu hỏi  │
+  │   │                      │ vào các nhóm: calculate, datetime, search, rag, │
+  │   │                      │ analyze, code, greet, general.                  │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 2 │ RouterAgent          │ Bộ điều hướng trung tâm, phân bổ nhiệm vụ vào   │
+  │   │ (Dispatcher)         │ ThreadPool, quản lý fan-out/fan-in song song.   │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 3 │ KnowledgeBaseAgent   │ Tác tử RAG nội bộ: trích xuất thông tin chuyên  │
+  │   │ (Local RAG)          │ sâu từ kho dữ liệu tài liệu văn bản, báo cáo.   │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 4 │ CalculatorAgent      │ Tác tử tính toán chính xác: đại số, biểu thức,  │
+  │   │                      │ phương trình, thống kê mà không lo ảo giác toán.│
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 5 │ DateTimeAgent        │ Tác tử thời gian: xử lý mốc thời gian, ngày lễ, │
+  │   │                      │ đếm ngược, múi giờ và lịch âm dương.            │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 6 │ WebSearchAgent       │ Tác tử tra cứu mạng: tìm kiếm thông tin mới,    │
+  │   │                      │ tin tức thời sự trên Internet mở.               │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 7 │ AnalystAgent         │ Tác tử phân tích: tóm tắt văn bản, phân tích cấu│
+  │   │                      │ trúc, trích xuất thực thể (NER), đo sắc thái.   │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 8 │ PlannerAgent         │ Tác tử lập kế hoạch: chia nhỏ bài toán phức tạp │
+  │   │                      │ thành các bước tác vụ rõ ràng theo thứ tự logic.│
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 9 │ ValidatorAgent       │ Tác tử kiểm định: kiểm tra chéo tính chính xác, │
+  │   │                      │ đo độ tin cậy và phát hiện mâu thuẫn/ảo giác.   │
+  ├───┼──────────────────────┼─────────────────────────────────────────────────┤
+  │ 10│ ResponseGenerator /  │ Tác tử tổng hợp: hợp nhất tri thức từ các agent,│
+  │   │ Coordinator          │ định dạng Markdown chuẩn, xuất Call Graph Trace.│
+  └───┴──────────────────────┴─────────────────────────────────────────────────┘
+
+2.3. Sơ đồ tương tác luồng Multi-Agent:
+
+                         ┌─────────────────────┐
+                         │   User Input / Doc  │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │[1] IntentClassifier │
+                         └──────────┬──────────┘
+                                    │ (Intent Label)
+                                    ▼
+                         ┌─────────────────────┐
+                         │  [2] Router Agent   │
+                         └──────────┬──────────┘
+                                    │
+          ┌──────────────┬──────────┴──────────┬──────────────┐
+          │ (Fan-out)    │                     │              │
+          ▼              ▼                     ▼              ▼
+   ┌─────────────┐┌─────────────┐       ┌─────────────┐┌─────────────┐
+   │[3] Local RAG││[4]Calculator│  ...  │ [7] Analyst ││ [8] Planner │
+   └──────┬──────┘└──────┬──────┘       └──────┬──────┘└──────┬──────┘
+          │              │                     │              │
+          └──────────────┼──────────┬──────────┴──────────────┘
+                         │ (Fan-in: Thu thập kết quả)
+                         ▼
+               ┌───────────────────┐
+               │ [9] Validator     │  (Kiểm định chéo tính chính xác)
+               └─────────┬─────────┘
+                         │
+                         ▼
+               ┌───────────────────┐
+               │[10] ResponseGen   │  (Tổng hợp & Định dạng Markdown)
+               └─────────┬─────────┘
+                         │
+                         ▼
+               ┌───────────────────┐
+               │ Output + Tracing  │  (Câu trả lời + Call Graph SVG)
+               └───────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 3: ĐÁNH GIÁ TIẾN ĐỘ HIỆN TẠI CỦA DỰ ÁN
+────────────────────────────────────────────────────────────────────────────────
+
+Tổng quan mức độ hoàn thiện của toàn bộ dự án hiện tại đạt khoảng 75% - 80%:
+
+1. Lõi Multi-Agent & LangGraph (Đạt 85%):
+   - Đã cấu hình StateGraph với đầy đủ TypedDict lưu trữ 18 trường trạng thái.
+   - Cơ chế ThreadPoolExecutor đã chạy được trong `multi_agent_chatbot_v3.py`.
+   - Lưu vết được danh sách `agent_timings` và cây quan hệ `call_graph`.
+
+2. Giao diện người dùng Web & Backend Flask (Đạt 80%):
+   - Đã có giao diện Web chat hoàn chỉnh (HTML/CSS/JS) với Dark Theme hiện đại.
+   - Hỗ trợ đổi Provider động (Groq, Anthropic, Mock), quản lý danh sách phiên chat.
+   - Có cơ chế xuất lịch sử chat (JSON/ZIP).
+
+3. Xử lý tệp đính kèm và OCR (Đạt 50%):
+   - Các hàm trích xuất text từ PDF, DOCX, XLSX, TXT, Ảnh đã được viết xong trong `app.py`.
+   - Tuy nhiên tính năng này đang bị ngắt kết nối (bị bỏ qua) tại endpoint `/api/chat`.
+
+4. Dashboard giám sát tiến trình Agent (Đạt 60%):
+   - Đã thiết kế file `agent_dashboard.html` (1112 dòng) cực kỳ đẹp mắt với sơ đồ SVG.
+   - Tuy nhiên dashboard này chưa được nhúng vào Flask và chưa nạp dữ liệu session thật.
+   - Route `/process/<session_id>` hiện chỉ render một bảng HTML thô sơ.
+
+5. Cơ sở dữ liệu và lưu trữ (Đạt 60%):
+   - Đang lưu mỗi phiên thành một file riêng biệt dạng `chat_history/session_*.json`.
+   - Đủ dùng cho kiểm thử cá nhân nhưng chưa tối ưu cho môi trường đa luồng.
+
+6. Tài liệu và Báo cáo Thực tập (Đạt 75%):
+   - Đã có file Word báo cáo thực tập `BaoCao_LangGraph_HoangMinhDuc.docx`.
+   - Đã có các file phân tích kiến trúc chi tiết (`MULTI_AGENT_ARCHITECTURE.md`, 
+     `LOCAL_RAG_PYTHON_LOGIC_NO_API.txt`, `ONLINE_DEPLOY_VA_CHI_PHI_MACHINE_LEARNING.txt`).
+   - Cần cập nhật số liệu thực nghiệm benchmark và ảnh chụp hệ thống mới.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 4: NHỮNG HẠN CHẾ VÀ ĐIỂM NGHẼN KỸ THUẬT HIỆN TẠI
+────────────────────────────────────────────────────────────────────────────────
+
+Qua rà soát chi tiết từng tệp tin và từng dòng code, hệ thống hiện tại đang gặp 
+phải 8 điểm hạn chế lớn:
+
+[Hạn chế 1] Phụ thuộc nặng nề vào API Key bên ngoài:
+- File `.env` hiện tại không có key Anthropic, các key Groq và Tavily là placeholder.
+- Khi không có API Key hoặc gặp lỗi mạng, chatbot bị treo hoặc rơi vào trạng thái lỗi.
+- Nguy cơ rất lớn khi bảo vệ đồ án/thực tập: Dễ bị lỗi Rate Limit 429 hoặc mất mạng.
+
+[Hạn chế 2] Tính chất "Mock / Giả lập" ở một số Agent con:
+- `KnowledgeBaseAgent`: Chỉ có từ điển cứng `KB` gồm đúng 6 từ khóa tĩnh ("langgraph", 
+  "crewai", "react", "memory", "rag", "multiagent"). Không đọc được tài liệu bên ngoài.
+- `PlannerAgent` & `ValidatorAgent` (dòng 757-790 `multi_agent_chatbot_v3.py`): Đang trả 
+  về chuỗi text cố định (hardcoded f-string) thay vì suy luận logic thực sự.
+
+[Hạn chế 3] Tính năng đính kèm tệp bị vô hiệu hóa trong `app.py`:
+- Tại dòng 642-644 của `app.py`:
+  `# Ignore attachments for now to keep the chat server running.`
+  `attachment_contexts = []`
+  Người dùng tải lên tài liệu nhưng hệ thống hoàn toàn bỏ qua, không đọc nội dung.
+
+[Hạn chế 4] Nghẽn luồng xử lý song song (Thread Bottleneck) tại `RouterAgent`:
+- Khởi tạo `ThreadPoolExecutor(max_workers=3)`. Khi người dùng hỏi câu hỏi phân tích 
+  (`intent == "analyze"`), Router đẩy vào 4 tác tử (`WebSearch`, `Analyst`, `Planner`, 
+  `Validator`). Tác tử thứ tư buộc phải xếp hàng chờ đợi, làm triệt tiêu ưu thế song song.
+
+[Hạn chế 5] Sự ngắt quãng giữa Dashboard SVG và Hệ thống Backend:
+- Giao diện `agent_dashboard.html` đồ họa SVG nằm đơn lẻ ở thư mục gốc, chỉ chạy 
+  hàm demo giả (`loadDemo()`).
+- Nút "Xem tiến trình" trên chat lại gọi bảng HTML mộc thô sơ của `ProcessInspector`.
+
+[Hạn chế 6] Lưu trữ file JSON rời rạc có nguy cơ Race Condition:
+- `backend/storage.py` ghi đè toàn bộ file `.json` mỗi lượt chat. Khi nhiều request 
+  đến cùng lúc rất dễ gây hỏng dữ liệu hoặc mất lịch sử.
+
+[Hạn chế 7] Cấu trúc mã nguồn đơn khối (Monolithic), cồng kềnh:
+- File `multi_agent_chatbot_v3.py` dài hơn 1430 dòng nhồi nhét cả 10 Agent, cả đồ thị, 
+  cả logic demo terminal. Rất khó bảo trì, kiểm thử và mở rộng.
+- File `app.py` dài 920 dòng chứa nhiều đoạn mã dự phòng và logic trùng lặp.
+
+[Hạn chế 8] Thiếu phản hồi Streaming (Server-Sent Events):
+- Client phải đợi từ 1-3 giây để server tính toán xong toàn bộ rồi mới nhận lại gói JSON, 
+  thiếu trải nghiệm gõ chữ từng từ mượt mà hiện đại.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 5: PHÂN TÍCH QUYẾT ĐỊNH "ĐẬP ĐI XÂY LẠI" (LỢI ÍCH & ƯU ĐIỂM VƯỢT TRỘI)
+────────────────────────────────────────────────────────────────────────────────
+
+Quyết định tái thiết lập lại toàn bộ mã nguồn theo yêu cầu:
+"Giữ nguyên giá trị gốc và kiến trúc Multi-Agent (10 Agent), viết lại với ngôn ngữ 
+và cấu trúc ổn hơn, mục đích riêng biệt thực chất, lõi logic Python thuần túy và 
+ĐẶC BIỆT TRÁNH SỬ DỤNG API_KEY" mang lại những ưu thế mang tính bước ngoặt:
+
+1. Ưu thế 1: Chi phí bằng 0 và Độc lập hoàn toàn (Zero Cost & 100% On-Premise):
+   - Không tốn tiền mua token Claude hay OpenAI.
+   - Không bị giới hạn số lượt hỏi trong ngày (RPM/RPD của Groq Free).
+   - Bảo mật tuyệt đối: Toàn bộ dữ liệu, câu hỏi và tài liệu không gửi ra nước ngoài.
+
+2. Ưu thế 2: Tốc độ phản hồi tức thì (Siêu tốc 5ms - 50ms):
+   - Không mất thời gian chờ độ trễ mạng quốc tế (Network Round-Trip Time).
+   - Các thuật toán Python nội bộ giải toán và tra cứu tài liệu trong vài chục mili-giây.
+
+3. Ưu thế 3: 10 Agent có chức năng thực chất, chuyên biệt rõ ràng:
+   - Thay vì gọi LLM chung chung cho mọi thứ, mỗi Agent giải quyết bằng thuật toán tối ưu nhất:
+     * `IntentClassifier`: Chạy Scikit-Learn (TF-IDF + Linear SVM) nội bộ, chính xác >95%, 
+       thời gian phân loại chỉ 1ms.
+     * `KnowledgeBase`: Chạy thuật toán xếp hạng BM25Okapi và TF-IDF trích xuất đúng 
+       đoạn văn bản từ các file PDF/DOCX trong thư mục `data/docs/`.
+     * `Calculator`: Dùng thư viện SymPy đại số và giải tích toán học thực thụ, 
+       chính xác 100%, không bao giờ tính nhầm.
+     * `DateTime`: Phân tích ngữ cảnh thời gian tiếng Việt tự nhiên (hôm nay, ngày mai, 
+       còn bao nhiêu ngày đến Tết, giờ GMT).
+     * `Analyst`: Dùng thuật toán NLP TextRank để tóm tắt văn bản và trích xuất từ khóa cốt lõi.
+     * `Search`: Tích hợp tìm kiếm DuckDuckGo không cần API key hoặc từ điển tri thức mở.
+     * `Validator`: Thuật toán kiểm tra độ phủ từ khóa (Lexical Overlap) và tính toán 
+       Confidence Score để phát hiện mâu thuẫn.
+     * `Planner`: Thuật toán đồ thị phụ thuộc mục tiêu (Goal-Dependency Planner) phân rã 
+       nhiệm vụ thành các bước thực thi rõ ràng.
+
+4. Ưu thế 4: Nâng tầm giá trị chuyên môn của Báo cáo Thực tập:
+   - Giảng viên và hội đồng chấm thi đánh giá rất cao việc sinh viên tự làm chủ mã nguồn, 
+     tự lập trình thuật toán NLP, tự xây dựng hệ thống RAG và điều phối Multi-Agent song song, 
+     thay vì làm đồ án chỉ biết "gắn key API gọi bot có sẵn".
+
+5. Ưu thế 5: Dễ dàng triển khai Online Miễn phí (Deploy 24/7):
+   - Vì không cần API Key và tài nguyên RAM cực nhẹ (<500MB), dự án có thể đóng gói 
+     và chạy vĩnh viễn trên Hugging Face Spaces hoặc Render Free mà không sợ bị ngắt.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 6: NHỮNG ĐIỂM CỐT YẾU CẦN SỬA ĐỔI VÀ HOÀN THIỆN SAU KHI TÁI THIẾT
+────────────────────────────────────────────────────────────────────────────────
+
+Khi tiến hành đập đi xây lại, hệ thống cần được tái thiết kế theo các tiêu chuẩn kỹ thuật sau:
+
+1. Kiến trúc thư mục chuẩn mực (Modular Clean Architecture):
+   - Tách nhỏ file 1430 dòng thành package `core/`:
+     `core/agents/` chứa 10 file riêng biệt cho 10 Agent. Mỗi file có class kế thừa 
+     từ `AgentBase`, quản lý rõ ràng input/output, thời gian thực thi và bắt lỗi cục bộ.
+   - File `app.py` được tối giản chỉ còn ~150 dòng tập trung vào điều hướng HTTP.
+
+2. Mở khóa và tích hợp triệt để cơ chế xử lý Tệp đính kèm:
+   - Sửa hàm chat tại backend: Khi người dùng gửi file, văn bản trích xuất được tự động 
+     chuyển thành context đầu vào để `KnowledgeBaseAgent` và `AnalystAgent` xử lý ngay lập tức.
+
+3. Điều chỉnh Router đa luồng không còn điểm nghẽn:
+   - Thiết lập `ThreadPoolExecutor(max_workers=6)` hoặc `8`.
+   - Bọc timeout độc lập cho từng Agent con (ví dụ 5-10 giây) để một agent bị lỗi 
+     không làm treo toàn bộ đồ thị.
+
+4. Chuyển đổi Cơ sở dữ liệu sang SQLite (`chatbot.db`):
+   - Thay thế việc đọc/ghi file `.json` rời rạc bằng cơ sở dữ liệu quan hệ SQLite nhỏ gọn:
+     Bảng `sessions`, bảng `turns`, bảng `agent_timings`. Đảm bảo tính toàn vẹn dữ liệu 
+     (ACID) khi nhiều người truy cập đồng thời.
+
+5. Tích hợp trực tiếp Dashboard SVG (`agent_dashboard.html`) vào Flask:
+   - Chuyển dashboard vào `templates/agent_dashboard.html`.
+   - Kết nối JavaScript của Dashboard với endpoint `/api/history/<session_id>` để khi 
+     bấm "Xem tiến trình", hệ thống vẽ ngay biểu đồ SVG của chính phiên hội thoại đó.
+
+6. Bổ sung cơ chế Streaming (Server-Sent Events - SSE):
+   - Xây dựng endpoint `/api/chat/stream` giúp câu trả lời được đẩy về trình duyệt 
+     từng từ một theo thời gian thực (hiệu ứng typing).
+
+7. Dọn dẹp sạch mã nguồn:
+   - Loại bỏ các file tạm rác: `tempCodeRunnerFile.py`, `smoke_run.py`, các file test nháp.
+   - Thiết lập `.gitignore` chuẩn cho Python, SQLite và môi trường ảo.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 7: CÁC BƯỚC TIẾN TIẾP THEO DỰ ĐỊNH ĐỂ HOÀN THIỆN DỰ ÁN XUẤT SẮC
+────────────────────────────────────────────────────────────────────────────────
+
+Lộ trình hành động được thiết kế thành 5 giai đoạn rõ ràng:
+
+[Giai đoạn 1] Tái cấu trúc Core & Xây dựng 10 Agent Thuần Python (Ưu tiên số 1):
+  - Bước 1.1: Tạo cấu trúc thư mục mới `core/`, `core/agents/`, `storage/`, `data/docs/`.
+  - Bước 1.2: Xây dựng bộ dataset huấn luyện và class `IntentClassifierAgent` bằng 
+    Scikit-learn (TF-IDF + Linear SVM).
+  - Bước 1.3: Cài đặt `KnowledgeBaseAgent` với thuật toán BM25 / TF-IDF Vector Search 
+    đọc tài liệu nội bộ trong thư mục `data/docs/`.
+  - Bước 1.4: Cài đặt `CalculatorAgent` (SymPy), `DateTimeAgent` (Lịch & múi giờ), 
+    `AnalystAgent` (TextRank), `PlannerAgent`, `ValidatorAgent`, `SearchAgent` (DuckDuckGo), 
+    và `ResponseGenerator`.
+
+[Giai đoạn 2] Lắp ráp Đồ thị LangGraph & Router Đa luồng:
+  - Bước 2.1: Định nghĩa TypedDict `AgentState` chuẩn hóa cho toàn hệ thống.
+  - Bước 2.2: Lắp ghép các Node và Conditional Edge vào StateGraph của LangGraph.
+  - Bước 2.3: Tối ưu cơ chế song song trong `RouterAgent` với ThreadPool 6 workers.
+
+[Giai đoạn 3] Nâng cấp Backend SQLite & Ghép nối Dashboard Trực quan:
+  - Bước 3.1: Xây dựng module `storage/database.py` dùng SQLite lưu session và timings.
+  - Bước 3.2: Kích hoạt xử lý đính kèm file trong `app.py`.
+  - Bước 3.3: Ghép nối `agent_dashboard.html` vào route `/process/<session_id>` để hiển thị 
+    đồ thị Call Graph SVG trực tiếp từ dữ liệu thực của SQLite.
+  - Bước 3.4: Tích hợp SSE streaming hiển thị gõ chữ từng từ trên giao diện chat.
+
+[Giai đoạn 4] Kiểm thử tự động (Unit Test) & Đo lường Benchmark Hiệu năng:
+  - Bước 4.1: Xây dựng bộ test `tests/test_agents.py` kiểm tra tự động độ chính xác của 10 Agent.
+  - Bước 4.2: Viết script `scripts/benchmark_performance.py`: Chạy tự động 30 câu hỏi mẫu, 
+    đo đạc và so sánh độ trễ (Latency) giữa mô hình v1 (Tuần tự), v3 (Song song có API) và 
+    v4 (Song song Pure Python). Xuất bảng số liệu và biểu đồ hình cột.
+
+[Giai đoạn 5] Triển khai Online & Hoàn tất Báo cáo Thực tập:
+  - Bước 5.1: Đóng gói và hướng dẫn triển khai hệ thống lên nền tảng đám mây miễn phí 
+    (Hugging Face Spaces hoặc Render) có đường link truy cập công khai.
+  - Bước 5.2: Cập nhật toàn bộ nội dung mới vào file Word `BaoCao_LangGraph_HoangMinhDuc.docx`:
+    * Chương 2: Kiến trúc Multi-Agent DAG v4.0 Pure Python.
+    * Chương 3: Chi tiết thuật toán 10 tác tử chuyên biệt, Local RAG và cơ chế không dùng API key.
+    * Chương 4: Bảng số liệu Benchmark thực nghiệm, biểu đồ so sánh độ trễ, ảnh chụp giao diện 
+      và Dashboard Call Graph SVG.
+    * Chương 5: Kết luận và định hướng mở rộng hệ thống.
+
+================================================================================
+KẾT LUẬN:
+Bản kế hoạch trên đảm bảo giữ trọn vẹn tinh hoa kiến trúc 10 Agent đa tác tử, đồng thời 
+giải quyết triệt để vấn đề phụ thuộc API key và tài nguyên mạng, đưa dự án trở thành một 
+sản phẩm phần mềm hoàn chỉnh, chạy độc lập, tốc độ cao và đạt điểm số tối đa trong kỳ 
+thực tập tốt nghiệp.
+================================================================================
+

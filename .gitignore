@@ -1,4 +1,4 @@
-﻿# Environment variables
+# Environment variables
 .env
 .env.local
 .env.*.local
@@ -49,3 +49,12 @@ tempCodeRunnerFile.py
 *.bak
 *.backup
 backup_files/
+
+# SQLite Database
+*.db
+*.sqlite3
+chatbot.db
+
+# Uploaded files
+static/uploads/*
+!static/uploads/.gitkeep

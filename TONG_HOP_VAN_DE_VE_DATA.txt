@@ -1,0 +1,224 @@
+================================================================================
+BẢNG TỔNG HỢP VÀ PHÂN TÍCH TOÀN DIỆN CÁC VẤN ĐỀ VỀ DỮ LIỆU (DATA)
+Dự án: LangGraph Multi-Agent Chatbot (Chuyển đổi sang Pure Python Local)
+Tác giả: Hoàng Minh Đức - Thực tập sinh AI Agent
+Ngày lập: 01/11/2026
+================================================================================
+
+Tài liệu này tổng hợp toàn bộ các vấn đề liên quan đến dữ liệu (Data) trong hệ thống:
+từ dữ liệu lưu trữ phiên chat, dữ liệu tri thức RAG, dữ liệu huấn luyện phân loại ý định,
+dữ liệu tệp đính kèm, cho đến dữ liệu kiểm thử và bảo mật. Bạn có thể sử dụng tài liệu 
+này để rà soát, bổ sung và trực tiếp xử lý các nguồn dữ liệu cho dự án.
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 1: TỔNG QUAN 7 VẤN ĐỀ CỐT LÕI VỀ DỮ LIỆU CẦN XỬ LÝ
+────────────────────────────────────────────────────────────────────────────────
+
+┌───┬───────────────────────────────┬──────────────────────────────────────────┐
+│STT│ Vấn đề Dữ liệu                │ Hiện trạng thực tế & Nguy cơ kỹ thuật    │
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 1 │ Dữ liệu Tri thức RAG          │ Đang là 1 dictionary cứng (`KB`) gồm 6 từ│
+│   │ (Knowledge Base Data)         │ khóa tĩnh. Không có thư mục chứa tài liệu│
+│   │                               │ thực tế và chưa có cơ chế cắt đoạn chunk.│
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 2 │ Dữ liệu Huấn luyện Ý định     │ Chưa có file dataset chuẩn để train model│
+│   │ (Intent Training Dataset)     │ phân loại cục bộ (TF-IDF + SVM). Cần tập │
+│   │                               │ câu hỏi tiếng Việt mẫu cho từng nhóm.    │
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 3 │ Dữ liệu Lưu trữ Phiên Chat    │ Đang lưu từng file JSON riêng lẻ tại     │
+│   │ (Session & Turn Storage)      │ `chat_history/session_*.json`. Dễ bị race│
+│   │                               │ condition khi chạy đa luồng/nhiều người. │
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 4 │ Dữ liệu Tệp đính kèm & Tải lên│ Tệp lưu dồn tại `static/uploads/`, không │
+│   │ (Attachments & Uploaded Data) │ có dọn dẹp rác, và đang bị tắt ở backend │
+│   │                               │ (`attachment_contexts = []` trong app.py)│
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 5 │ Dữ liệu Hồ sơ Người dùng      │ Đang dùng `user_data.json` ở thư mục gốc,│
+│   │ (User Profile Data)           │ lưu rời rạc và chưa liên kết khóa ngoại  │
+│   │                               │ với các phiên chat trong lịch sử.        │
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 6 │ Dữ liệu Trạng thái Đồ thị     │ `AgentState` có 18 trường; khi các agent │
+│   │ (StateGraph Blackboard Data)  │ song song cùng ghi vào State có nguy cơ  │
+│   │                               │ ghi đè dữ liệu nếu không có Reducer.     │
+├───┼───────────────────────────────┼──────────────────────────────────────────┤
+│ 7 │ Dữ liệu Kiểm thử & Benchmark  │ Chỉ có 3 câu test sơ sài trong smoke_run.│
+│   │ (Benchmark Ground-Truth Data) │ Chưa có bộ 30–50 câu hỏi chuẩn kèm đáp án│
+│   │                               │ mẫu để đo đạc độ chính xác và độ trễ.    │
+└───┴───────────────────────────────┴──────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 2: CHI TIẾT TỪNG VẤN ĐỀ VÀ GIẢI PHÁP KỸ THUẬT CỤ THỂ
+────────────────────────────────────────────────────────────────────────────────
+
+### 1. DỮ LIỆU TRI THỨC NỘI BỘ (LOCAL RAG KNOWLEDGE BASE)
+- Hiện trạng:
+  Trong `multi_agent_chatbot_v3.py`, biến `KB` chỉ là một dictionary cố định:
+  ```python
+  KB = {"langgraph": [...], "crewai": [...], "react": [...], 
+        "memory": [...], "rag": [...], "multiagent": [...]}
+  ```
+  Chatbot chỉ trả lời được quanh 6 từ khóa này. Nếu hỏi về quy định thực tập, 
+  tài liệu kỹ thuật khác thì hoàn toàn không có dữ liệu.
+- Vấn đề cần xử lý:
+  + Cần tạo thư mục vật lý: `data/docs/`
+  + Cần chuẩn bị các tệp tài liệu thực tế (định dạng: `.txt`, `.md`, `.pdf`, `.docx`).
+  + Cần xây dựng module tiền xử lý văn bản:
+    * Text Chunking: Cắt tài liệu thành các đoạn văn ngắn (200 - 400 từ) có độ gối đầu 
+      (overlap 50 từ) để không mất ngữ cảnh giữa các đoạn.
+    * Đánh chỉ mục BM25Okapi: Lưu trữ danh sách token và chỉ mục nghịch đảo (Inverted Index) 
+      để tra cứu tức thì dưới 5 mili-giây.
+- Hành động bạn cần làm:
+  -> Bạn hãy gom các file tài liệu muốn bot tra cứu (ví dụ: Báo cáo thực tập mẫu, 
+     tài liệu quy chế, tài liệu chuyên ngành...) bỏ vào thư mục `data/docs/`.
+
+---
+
+### 2. DỮ LIỆU HUẤN LUYỆN PHÂN LOẠI Ý ĐỊNH (INTENT TRAINING DATASET)
+- Hiện trạng:
+  Trước đây phụ thuộc vào prompt gửi lên LLM của Groq/Claude để đoán Intent. Khi chuyển 
+  sang chạy 100% Python bằng thư viện `scikit-learn` (TF-IDF Vectorizer + Linear SVM), 
+  máy cần một tập dữ liệu mẫu để "học" trước khi chạy.
+- Vấn đề cần xử lý:
+  + Cần tạo file dữ liệu huấn luyện: `data/intent_dataset.json` (hoặc `.csv`).
+  + Cần tối thiểu 10 – 15 câu mẫu cho mỗi nhóm ý định để mô hình đạt độ chính xác >96%.
+- Cấu trúc 8 nhóm ý định cần dữ liệu:
+  1. `calculate` (Tính toán): "tính 25 * 4", "giải phương trình 2x + 6 = 10", "căn bậc hai của 144"
+  2. `datetime` (Thời gian): "bây giờ là mấy giờ", "hôm nay ngày bao nhiêu", "còn bao nhiêu ngày đến tết"
+  3. `rag` (Hỏi tài liệu): "langgraph là gì", "nguyên lý hoạt động của multi agent", "nội dung trong tài liệu quy định gì"
+  4. `search` (Tìm kiếm): "thời tiết hôm nay", "tin tức mới nhất về trí tuệ nhân tạo", "ai là người sáng lập python"
+  5. `analyze` (Phân tích/Tóm tắt): "hãy tóm tắt đoạn văn này", "phân tích ưu nhược điểm", "trích xuất ý chính"
+  6. `plan` (Lập kế hoạch): "lập kế hoạch học AI trong 3 tháng", "các bước triển khai dự án", "lộ trình thực hiện"
+  7. `greet` (Chào hỏi): "xin chào", "chào bot", "bạn là ai", "tạm biệt"
+  8. `general` (Trò chuyện chung): các câu hỏi đàm thoại đời thường.
+- Hành động bạn cần làm:
+  -> Xem xét danh sách 8 nhóm trên, nếu muốn bot nhận diện thêm nhóm đặc thù nào 
+     (ví dụ: `code`, `translate`...) thì bổ sung thêm vào danh sách.
+
+---
+
+### 3. DỮ LIỆU LƯU TRỮ PHIÊN HỘI THOẠI (CHAT SESSIONS & TIMINGS)
+- Hiện trạng:
+  Module `backend/storage.py` đang dùng hàm `session_path()` để đọc/ghi từng file:
+  `chat_history/session_20261028_132205.json`.
+- Nguy cơ:
+  + Khi có 2 request gửi tới cùng một lúc (hoặc người dùng bấm liên tục), thao tác ghi 
+    đè file JSON dễ gây lỗi `File Lock` hoặc mất dữ liệu lịch sử lượt chat.
+  + Không thể thực hiện các câu lệnh thống kê nâng cao (ví dụ: tính thời gian phản hồi trung 
+    bình của Agent trong 100 phiên chat gần nhất).
+- Giải pháp tái thiết:
+  Chuyển sang Cơ sở dữ liệu quan hệ cục bộ **SQLite** (`storage/chatbot.db`) với lược đồ 
+  (Schema) chuẩn:
+  ```sql
+  -- Bảng 1: Quản lý phiên
+  CREATE TABLE sessions (
+      session_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP
+  );
+
+  -- Bảng 2: Quản lý từng lượt chat (Turns)
+  CREATE TABLE turns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT,
+      turn_id INTEGER,
+      timestamp TIMESTAMP,
+      user_query TEXT,
+      final_answer TEXT,
+      intent TEXT,
+      confidence_score REAL,
+      attachments_json TEXT,
+      FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+  );
+
+  -- Bảng 3: Chi tiết độ trễ của từng Agent con (Dùng cho Dashboard SVG)
+  CREATE TABLE agent_timings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      turn_id INTEGER,
+      session_id TEXT,
+      agent_name TEXT,
+      called_by TEXT,
+      duration REAL,
+      calls_json TEXT
+  );
+  ```
+
+---
+
+### 4. DỮ LIỆU TỆP ĐÍNH KÈM & TẢI LÊN (ATTACHMENT DATA)
+- Hiện trạng:
+  + Thư mục `static/uploads/` đang chứa nhiều tệp rác (.png, .pdf) từ các lần chạy trước 
+    mà không có cơ chế dọn dẹp theo thời gian (Retention Policy).
+  + Trong `app.py`, biến `attachment_contexts = []` bị gán rỗng, dẫn đến toàn bộ nội dung 
+    tệp người dùng upload không bao giờ được chuyển vào cho các Agent xử lý.
+- Vấn đề cần xử lý:
+  + Mở khóa dòng code trong `app.py` để trích xuất text từ tệp gửi lên.
+  + Kiểm soát kích thước dữ liệu (Data Truncation): Nếu người dùng upload một file PDF 
+    dài 200 trang, nếu nạp toàn bộ vào bộ nhớ sẽ gây tràn RAM (Out of Memory). 
+    Cần giới hạn độ dài văn bản trích xuất (ví dụ: tối đa 10,000 ký tự đầu tiên hoặc 
+    chỉ lấy các trang liên quan nhất thông qua BM25).
+  + Viết hàm tự động dọn dẹp các tệp upload đã cũ hơn 7 ngày để tránh đầy ổ cứng.
+
+---
+
+### 5. DỮ LIỆU BẢN ĐỒ TRẠNG THÁI LANGGRAPH (AGENTSTATE DATA)
+- Hiện trạng:
+  Trong đồ thị LangGraph, `AgentState` là đối tượng Blackboard chạy xuyên suốt chứa:
+  `user_query`, `intent`, `kb_context`, `calc_result`, `datetime_result`, `web_results`, 
+  `analysis`, `planning`, `validation`, `final_answer`, `agent_timings`, `call_graph`.
+- Nguy cơ xung đột dữ liệu (Data Race Condition):
+  + Khi Router kích hoạt 4–5 Agent chạy **SONG SONG** trong ThreadPool, các agent này 
+    sẽ cùng đồng thời ghi kết quả vào biến State chung.
+  + Nếu không thiết kế cơ chế khóa luồng hoặc hàm gom dữ liệu (Reducer/Collector), 
+    kết quả của Agent này có thể vô tình ghi đè hoặc làm mất kết quả của Agent khác.
+- Giải pháp kỹ thuật:
+  + Các worker song song chỉ trả về kết quả độc lập (Pure Return Dictionary).
+  + Khâu **Barrier Synchronization** (Điểm chốt đồng bộ) tại Router sẽ thu thập tất 
+    cả Dictionary kết quả, đóng gói an toàn rồi mới cập nhật vào `AgentState` trước 
+    khi chuyển sang pha Tuần tự.
+
+---
+
+### 6. DỮ LIỆU KIỂM THỬ THỰC NGHIỆM (BENCHMARK TEST DATASET)
+- Hiện trạng:
+  Hiện tại dự án chưa có một bộ dữ liệu kiểm thử chuẩn (Ground-Truth Test Set). 
+  File `tests/run_checks.py` chỉ có đúng 3 câu test đơn giản.
+- Tầm quan trọng đối với Báo cáo Thực tập:
+  Để báo cáo thực tập đạt điểm cao, bạn cần một bảng dữ liệu thực nghiệm khoa học:
+  "Đã kiểm thử hệ thống với 40 câu hỏi thuộc 8 chủ đề, kết quả phân loại đạt 97.5%, 
+  tốc độ xử lý trung bình đạt 45ms, độ chính xác toán học đạt 100%".
+- Vấn đề cần chuẩn bị:
+  Xây dựng file `tests/benchmark_questions.json` gồm 30 – 40 câu hỏi được gán nhãn sẵn 
+  kết quả kỳ vọng (Expected Intent, Expected Answer) để script tự động chạy và tính 
+  ra các chỉ số:
+  + Độ chính xác (Accuracy %).
+  + Thời gian phản hồi (Latency trung bình và Latency từng agent).
+  + Tỷ lệ vượt qua kiểm định của ValidatorAgent.
+
+
+────────────────────────────────────────────────────────────────────────────────
+PHẦN 3: BẢNG HỎI DỮ LIỆU CẦN BẠN XÁC NHẬN ĐỂ TIẾN HÀNH XỬ LÝ
+────────────────────────────────────────────────────────────────────────────────
+
+Để hoàn thiện phần dữ liệu chuẩn bị cho việc tái thiết, bạn hãy rà soát và cho ý kiến:
+
+1. [Tài liệu RAG]: Bạn đã có sẵn tài liệu gì cần đưa vào bot chưa? 
+   (Nếu chưa, tôi sẽ tạo sẵn bộ tài liệu mẫu về: Báo cáo thực tập AI, Khái niệm LangGraph, 
+   và Sổ tay hướng dẫn sử dụng hệ thống vào thư mục `data/docs/`).
+
+2. [Số lượng nhóm Ý định]: Bạn có muốn giữ nguyên 8 nhóm ý định tiêu chuẩn:
+   `calculate`, `datetime`, `rag`, `search`, `analyze`, `plan`, `greet`, `general` 
+   hay muốn thêm bớt nhóm nào?
+
+3. [Xử lý tệp rác]: Bạn có đồng ý chuyển các file lịch sử cũ trong `chat_history/` 
+   và file upload cũ trong `static/uploads/` vào thư mục lưu trữ `archive/old_data/` 
+   để khởi tạo cơ sở dữ liệu SQLite mới hoàn toàn sạch sẽ không?
+
+================================================================================
+KẾT LUẬN:
+Việc làm chủ và quy hoạch sạch sẽ các tầng dữ liệu (Data Pipeline) là bước quyết định 
+giúp hệ thống Multi-Agent chạy ổn định, nhanh chóng, không bị lỗi đa luồng và cung cấp 
+đầy đủ bằng chứng thực nghiệm giá trị cho Báo cáo tốt nghiệp thực tập.
+================================================================================
+

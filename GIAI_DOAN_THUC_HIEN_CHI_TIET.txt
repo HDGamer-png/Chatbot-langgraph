@@ -1,0 +1,232 @@
+================================================================================
+KẾ HOẠCH VÀ HƯỚNG DẪN CHI TIẾT TỪNG BƯỚC CHO CÁC GIAI ĐOẠN HOÀN THIỆN DỰ ÁN
+Dự án: LangGraph Multi-Agent Chatbot (v3.1.0)
+Tác giả đề tài: Hoàng Minh Đức - Thực tập sinh AI Agent
+================================================================================
+
+Tài liệu này cung cấp hướng dẫn kỹ thuật chi tiết theo từng bước, chỉ rõ vị trí 
+tệp tin, dòng lệnh và giải pháp cụ thể để hoàn thiện dự án.
+
+────────────────────────────────────────────────────────────────────────────────
+GIAI ĐOẠN 1: SỬA CHỮA & KÍCH HOẠT TÍNH NĂNG DANG DỞ (ƯU TIÊN CAO NHẤT)
+────────────────────────────────────────────────────────────────────────────────
+
+Mục tiêu: Đưa các chức năng đã có sẵn trong mã nguồn nhưng đang bị tắt hoặc chưa 
+ghép nối vào hoạt động thực tế.
+
+[Bước 1.1] Kích hoạt xử lý Tệp đính kèm & OCR trong app.py
+- Hiện trạng: 
+  Trong file app.py, các hàm trích xuất tệp (_extract_text_from_file, 
+  _extract_text_from_pdf, _extract_text_from_docx, _extract_text_from_xlsx, 
+  _extract_text_from_image) đã được cài đặt hoàn chỉnh từ dòng 450 đến 555. 
+  Tuy nhiên, tại endpoint `/api/chat` (dòng 642-644), mã nguồn lại cố tình bỏ qua:
+      # Ignore attachments for now to keep the chat server running.
+      attachment_contexts = []
+      message_payload = message
+- Các bước thực hiện:
+  1. Mở file `app.py`, tìm đến hàm `chat()` (khoảng dòng 630).
+  2. Thay thế đoạn code bỏ qua attachments bằng đoạn code sau:
+     ---------------------------------------------------------------------------
+     attachments = data.get("attachments", [])
+     attachment_contexts = []
+     message_payload = message
+
+     if attachments:
+         attachment_contexts, attachment_summary = _build_attachment_context(attachments)
+         if attachment_summary:
+             if message_payload:
+                 message_payload = f"{message_payload}\n\n{attachment_summary}"
+             else:
+                 message_payload = attachment_summary
+     ---------------------------------------------------------------------------
+  3. Kiểm tra biến `attachment_contexts` đã được truyền vào `history_store.append_turn(...)` 
+     để lưu lại lịch sử các tệp đính kèm.
+  4. Đảm bảo các thư viện đọc file đã được cài đặt:
+     pip install openpyxl pypdf python-docx Pillow
+
+[Bước 1.2] Tích hợp Giao diện Dashboard trực quan (agent_dashboard.html) vào Flask
+- Hiện trạng:
+  Dự án có sẵn file `agent_dashboard.html` (1112 dòng) với giao diện dark theme, 
+  biểu đồ cột SVG, sơ đồ cây Call Graph cực kỳ đẹp mắt nhưng đang để ở thư mục gốc 
+  và chỉ chạy bằng dữ liệu demo. Trong khi đó route `/process/<session_id>` lại dùng 
+  hàm render thô sơ của `ProcessInspector`.
+- Các bước thực hiện:
+  1. Di chuyển hoặc sao chép `agent_dashboard.html` vào thư mục `templates/`.
+  2. Mở file `templates/agent_dashboard.html`, thêm đoạn script tự động nạp dữ liệu 
+     session theo URL hiện tại (thay vì chỉ nạp demo):
+     ---------------------------------------------------------------------------
+     window.onload = function() {
+         const parts = window.location.pathname.split('/');
+         const sid = parts[parts.length - 1];
+         if (sid && sid !== "agent_dashboard.html") {
+             fetch(`/api/history/${encodeURIComponent(sid)}`)
+                 .then(r => r.json())
+                 .then(data => {
+                     if (data && data.turns && data.turns.length > 0) {
+                         sessionData = data;
+                         uploadZone.style.display = 'none';
+                         renderAll();
+                     } else {
+                         loadDemo();
+                     }
+                 })
+                 .catch(() => loadDemo());
+         } else {
+             loadDemo();
+         }
+     };
+     ---------------------------------------------------------------------------
+  3. Mở file `app.py`, sửa hàm `view_process()` tại route `/process/<session_id>`:
+     ---------------------------------------------------------------------------
+     @app.route("/process/<session_id>", methods=["GET"])
+     def view_process(session_id: str):
+         return render_template("agent_dashboard.html", session_id=session_id)
+     ---------------------------------------------------------------------------
+  4. Kiểm tra: Bấm nút "Xem tiến trình" trên giao diện Web UI, trang web sẽ mở ra 
+     dashboard đồ họa SVG trực quan của chính phiên chat đó.
+
+[Bước 1.3] Dọn dẹp mã nguồn & Cập nhật Documentation
+- Các bước thực hiện:
+  1. Xóa các file nháp tạm thời trong thư mục gốc:
+     - `tempCodeRunnerFile.py`
+     - `temp_intent_test.py`
+     - `temp_test_chat.py`
+  2. Mở file `HOW_TO_VIEW_AGENT_COMMUNICATION.md`, sửa các đường dẫn tham chiếu:
+     Đổi `multi_agent_chatbot.py` thành `archive/multi_agent_chatbot_v1.py` 
+     hoặc chuyển trọng tâm hướng dẫn vào `multi_agent_chatbot_v3.py`.
+
+
+────────────────────────────────────────────────────────────────────────────────
+GIAI ĐOẠN 2: NÂNG CẤP TRI THỨC & TÍNH THỰC CHẤT CỦA MULTI-AGENT
+────────────────────────────────────────────────────────────────────────────────
+
+Mục tiêu: Chuyển các agent đang trả về dữ liệu mẫu (mock/template) thành agent có 
+khả năng suy luận động và tra cứu tri thức thực sự.
+
+[Bước 2.1] Nâng cấp KnowledgeBaseAgent thành hệ thống RAG thực thụ
+- Hiện trạng: 
+  Trong `multi_agent_chatbot_v3.py`, biến `KB` chỉ là một dictionary chứa 6 từ khóa 
+  cố định ("langgraph", "crewai", "react", "memory", "rag", "multiagent").
+- Các bước thực hiện:
+  1. Tạo thư mục `data/docs/` để chứa tài liệu (.txt, .md, .pdf).
+  2. Cài đặt thư viện Vector Database cục bộ:
+     pip install chromadb sentence-transformers langchain-community
+  3. Viết class RAG Vector Store thay thế:
+     - Dùng mô hình embedding cục bộ: `sentence-transformers/all-MiniLM-L6-v2` (~80MB).
+     - Lưu trữ vector vào thư mục `data/chroma_db/`.
+     - Trong phương thức `KnowledgeBaseAgent.run(query, intent)`:
+       Thực hiện `vector_store.similarity_search(query, k=3)`.
+       Nếu tìm thấy tài liệu phù hợp -> trả về trích dẫn tài liệu làm `kb_context`.
+       Nếu không có -> fallback về dictionary tĩnh dự phòng.
+
+[Bước 2.2] Chuyển đổi PlannerAgent & ValidatorAgent thành Agent LLM thực chất
+- Hiện trạng:
+  Hai class này ở dòng 757-790 của `multi_agent_chatbot_v3.py` đang trả về chuỗi 
+  f-string tĩnh (hardcoded).
+- Các bước thực hiện:
+  1. Cho PlannerAgent và ValidatorAgent kế thừa cơ chế gọi `self._get_llm()` tương tự 
+     như `AnalystAgent`.
+  2. Sử dụng mô hình nhẹ, tốc độ cao (`claude-haiku-4-5` hoặc `compound-beta-mini`).
+  3. Định nghĩa System Prompt chuyên biệt:
+     - PlannerAgent: "Bạn là chuyên gia lập kế hoạch. Hãy phân tích yêu cầu của người dùng 
+       và chia nhỏ thành 2-3 bước tác vụ rõ ràng."
+     - ValidatorAgent: "Bạn là chuyên gia kiểm định tính xác thực. Hãy đối chiếu câu trả lời 
+       dự kiến với bối cảnh tài liệu để chỉ ra điểm chưa chính xác hoặc thiếu sót."
+
+[Bước 2.3] Điều chỉnh ThreadPoolExecutor trong RouterAgent
+- Hiện trạng:
+  `with ThreadPoolExecutor(max_workers=3) as pool:`
+  Khi người dùng hỏi câu hỏi dạng "analyze", Router kích hoạt 4 agent cùng lúc 
+  (WebSearch, Analyst, Planner, Validator) nhưng chỉ có 3 worker, khiến tác tử thứ 4 
+  bị nghẽn.
+- Cách sửa:
+  Tăng `max_workers=6` trong `RouterAgent.run()` và bọc timeout độc lập (ví dụ: 10 giây) 
+  cho mỗi future để tránh việc 1 tác tử mạng bị chậm làm đơ toàn bộ hệ thống.
+
+
+────────────────────────────────────────────────────────────────────────────────
+GIAI ĐOẠN 3: TỐI ƯU HÓA BACKEND & CƠ SỞ DỮ LIỆU
+────────────────────────────────────────────────────────────────────────────────
+
+Mục tiêu: Đảm bảo hệ thống vận hành bền bỉ, không bị xung đột tài nguyên file và 
+tăng tốc độ tải dữ liệu.
+
+[Bước 3.1] Chuyển đổi ChatHistoryStore từ File JSON sang SQLite
+- Hiện trạng: 
+  Mỗi phiên chat lưu thành một file riêng biệt trong `chat_history/session_*.json`. 
+  Khi có nhiều yêu cầu đồng thời, việc ghi đè file có nguy cơ gây mất dữ liệu hoặc 
+  race condition.
+- Các bước thực hiện:
+  1. Trong `backend/storage.py`, thiết kế database SQLite `chatbot.db`:
+     - Bảng `sessions`: id, user_id, created_at, updated_at
+     - Bảng `turns`: id, session_id, turn_id, timestamp, user_query, final_answer, intent
+     - Bảng `timings`: id, turn_id, agent_name, duration, called_by
+  2. Viết lại các hàm `save_turn()`, `load_session()`, `list_sessions()` bằng câu 
+     lệnh SQL (hoặc dùng SQLAlchemy).
+  3. Giữ nguyên giao diện hàm để `app.py` và `multi_agent_chatbot_v3.py` không cần 
+     sửa đổi logic gọi.
+
+[Bước 3.2] Bổ sung Streaming Response (Server-Sent Events - SSE)
+- Hiện trạng: 
+  Chatbot đợi ResponseGenerator sinh xong toàn bộ văn bản rồi mới gửi về Web UI, 
+  khiến người dùng phải đợi 1.5 - 2 giây màn hình trống.
+- Các bước thực hiện:
+  1. Tại `app.py`, tạo thêm route `/api/chat/stream`:
+     - Chạy đồ thị LangGraph qua các bước phân loại, tra cứu, lập kế hoạch.
+     - Tại bước ResponseGenerator, sử dụng phương thức `llm.stream(prompt)`.
+     - Sử dụng `flask.Response(stream_with_context(generator), mimetype='text/event-stream')`.
+  2. Tại `static/app.js`:
+     - Dùng API `fetch()` đọc luồng dữ liệu `ReadableStream`.
+     - Hiển thị từng token xuất hiện trực tiếp trên bong bóng chat (hiệu ứng typing).
+
+[Bước 3.3] Khắc phục lỗi nạp Provider động (Runtime Provider Selection)
+- Vấn đề: 
+  Khi người dùng đổi Provider từ Web UI (ví dụ Groq sang Anthropic), biến toàn cục 
+  trong module được cập nhật nhưng các instance agent đã cache `self._llm` không 
+  tự làm mới.
+- Cách sửa:
+  Thêm phương thức `reset_llm()` vào lớp `AgentBase`:
+  ```python
+  def reset_llm(self):
+      self._llm = None
+  ```
+  Khi gọi `init_chatbot(provider_override)`, duyệt qua các agent toàn cục 
+  (_intent_agent, _response_agent, v.v.) và gọi `reset_llm()`.
+
+
+────────────────────────────────────────────────────────────────────────────────
+GIAI ĐOẠN 4: KIỂM THỬ TỰ ĐỘNG, BENCHMARK & HOÀN THIỆN BÁO CÁO THỰC TẬP
+────────────────────────────────────────────────────────────────────────────────
+
+Mục tiêu: Cung cấp bằng chứng thực nghiệm rõ ràng, có số liệu khoa học để báo cáo 
+thực tập đạt đánh giá xuất sắc.
+
+[Bước 4.1] Xây dựng Bộ kiểm thử tự động với Pytest
+- Tạo thư mục `tests/` với các file kiểm thử độc lập:
+  1. `tests/test_intent.py`: Kiểm tra 20 câu hỏi mẫu xem phân loại intent đúng >= 90%.
+  2. `tests/test_calculator.py`: Kiểm tra tính toán các biểu thức cộng, trừ, nhân, 
+     chia, căn bậc hai, hàm lượng giác và chặn injection code độc hại.
+  3. `tests/test_parallel.py`: Kiểm tra thời gian chạy của RouterAgent chứng minh 
+     các agent chạy đồng thời chứ không chạy nối tiếp.
+- Chạy kiểm thử: `pytest tests/ -v`
+
+[Bước 4.2] Viết Script Benchmark đo đạc hiệu năng tự động
+- Tạo file `scripts/benchmark_performance.py`:
+  - Gửi tự động 30 câu hỏi ngẫu nhiên qua các module.
+  - Ghi nhận: Thời gian phản hồi (Latency), Thời gian của từng Agent con, Độ dài câu trả lời.
+  - So sánh trực tiếp: 
+    * Mô hình v1 (Tuần tự): Trung bình 2.5s - 3.2s
+    * Mô hình v3 (Song song): Trung bình 1.1s - 1.6s (Cải thiện ~2 lần)
+  - Xuất kết quả ra file `benchmark_results.json` và biểu đồ hình cột PNG.
+
+[Bước 4.3] Cập nhật Báo cáo thực tập (BaoCao_LangGraph_HoangMinhDuc.docx)
+- Cập nhật các nội dung sau vào file Word:
+  1. Chương 2 (Kiến trúc): Bổ sung sơ đồ kiến trúc Multi-Agent v3.1, giải thích cơ chế 
+     điều phối Fan-out / Fan-in của LangGraph kết hợp ThreadPool.
+  2. Chương 3 (Cài đặt): Mô tả chi tiết 10 tác tử chuyên biệt, thuật toán OCR trích xuất 
+     đa định dạng và cơ chế xử lý lỗi quá tải API (GroqLLMWrapper).
+  3. Chương 4 (Thực nghiệm & Đánh giá): Đưa bảng số liệu so sánh tốc độ (v1 vs v3), 
+     ảnh chụp màn hình giao diện Web Dark Theme và hình chụp Agent Dashboard SVG.
+  4. Chương 5 (Kết luận): Đánh giá những kết quả đã đạt được và hướng mở rộng thành 
+     hệ thống phục vụ sản xuất thực tế.
+================================================================================

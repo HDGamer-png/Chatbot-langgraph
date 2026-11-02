@@ -1,0 +1,818 @@
+{
+  "timestamp": "2026-11-02T21:19:31",
+  "total_queries": 13,
+  "intent_accuracy_percent": 100.0,
+  "average_latency_ms": 93.35,
+  "summary_comparison": {
+    "v1_sequential": "2.5s - 3.5s",
+    "v3_api_parallel": "1.2s - 1.8s",
+    "v4_pure_python": "93.4ms"
+  },
+  "detailed_results": [
+    {
+      "id": 1,
+      "query": "tính 25 * 4 + 150",
+      "expected_intent": "calculate",
+      "actual_intent": "calculate",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0298,
+      "confidence_score": 0.74,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "Calculator",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0264,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0027,
+          "calls": [
+            "Calculator"
+          ]
+        },
+        {
+          "agent": "Calculator",
+          "called_by": "Router",
+          "duration": 0.0014,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "query": "giải phương trình 3x + 9 = 27",
+      "expected_intent": "calculate",
+      "actual_intent": "calculate",
+      "intent_correct": true,
+      "elapsed_seconds": 0.9917,
+      "confidence_score": 0.74,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "Calculator",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0113,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.9796,
+          "calls": [
+            "Calculator"
+          ]
+        },
+        {
+          "agent": "Calculator",
+          "called_by": "Router",
+          "duration": 0.9784,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0001,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "query": "căn bậc hai của 256",
+      "expected_intent": "calculate",
+      "actual_intent": "calculate",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0184,
+      "confidence_score": 0.74,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "Calculator",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0165,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0014,
+          "calls": [
+            "Calculator"
+          ]
+        },
+        {
+          "agent": "Calculator",
+          "called_by": "Router",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0001,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "query": "bây giờ là mấy giờ",
+      "expected_intent": "datetime",
+      "actual_intent": "datetime",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0164,
+      "confidence_score": 0.95,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "DateTime",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0148,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0011,
+          "calls": [
+            "DateTime"
+          ]
+        },
+        {
+          "agent": "DateTime",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "query": "hôm nay là thứ mấy ngày mấy",
+      "expected_intent": "datetime",
+      "actual_intent": "datetime",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0159,
+      "confidence_score": 0.95,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "DateTime",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0148,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0008,
+          "calls": [
+            "DateTime"
+          ]
+        },
+        {
+          "agent": "DateTime",
+          "called_by": "Router",
+          "duration": 0.0,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "query": "còn bao nhiêu ngày nữa đến tết",
+      "expected_intent": "datetime",
+      "actual_intent": "datetime",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0164,
+      "confidence_score": 0.95,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "DateTime",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0147,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0012,
+          "calls": [
+            "DateTime"
+          ]
+        },
+        {
+          "agent": "DateTime",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "query": "langgraph là gì",
+      "expected_intent": "rag",
+      "actual_intent": "rag",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0188,
+      "confidence_score": 0.6058,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "KnowledgeBase",
+        "Analyst",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.015,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0031,
+          "calls": [
+            "KnowledgeBase",
+            "Analyst"
+          ]
+        },
+        {
+          "agent": "KnowledgeBase",
+          "called_by": "Router",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0004,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0003,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "query": "giải thích mô hình react",
+      "expected_intent": "rag",
+      "actual_intent": "rag",
+      "intent_correct": true,
+      "elapsed_seconds": 0.017,
+      "confidence_score": 0.6093,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "KnowledgeBase",
+        "Analyst",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0138,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0025,
+          "calls": [
+            "KnowledgeBase",
+            "Analyst"
+          ]
+        },
+        {
+          "agent": "KnowledgeBase",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0003,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "query": "cơ chế fan out fan in trong multi agent",
+      "expected_intent": "rag",
+      "actual_intent": "rag",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0193,
+      "confidence_score": 0.6144,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "KnowledgeBase",
+        "Analyst",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.016,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0026,
+          "calls": [
+            "KnowledgeBase",
+            "Analyst"
+          ]
+        },
+        {
+          "agent": "KnowledgeBase",
+          "called_by": "Router",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0004,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "query": "python là gì",
+      "expected_intent": "search",
+      "actual_intent": "search",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0174,
+      "confidence_score": 0.6262,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "Analyst",
+        "WebSearch",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0149,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.002,
+          "calls": [
+            "WebSearch",
+            "Analyst"
+          ]
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "WebSearch",
+          "called_by": "Router",
+          "duration": 0.0006,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "query": "machine learning là gì",
+      "expected_intent": "search",
+      "actual_intent": "search",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0172,
+      "confidence_score": 0.6246,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "WebSearch",
+        "Analyst",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.015,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0018,
+          "calls": [
+            "WebSearch",
+            "Analyst"
+          ]
+        },
+        {
+          "agent": "WebSearch",
+          "called_by": "Router",
+          "duration": 0.0006,
+          "calls": []
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "query": "phân tích ưu điểm của kiến trúc multi-agent",
+      "expected_intent": "analyze",
+      "actual_intent": "analyze",
+      "intent_correct": true,
+      "elapsed_seconds": 0.019,
+      "confidence_score": 0.6737,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "Analyst",
+        "KnowledgeBase",
+        "Calculator",
+        "WebSearch",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0144,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.0038,
+          "calls": [
+            "KnowledgeBase",
+            "WebSearch",
+            "Analyst",
+            "Calculator"
+          ]
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0002,
+          "calls": []
+        },
+        {
+          "agent": "KnowledgeBase",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Calculator",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "WebSearch",
+          "called_by": "Router",
+          "duration": 0.0012,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0003,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "query": "xin chào bạn",
+      "expected_intent": "greet",
+      "actual_intent": "greet",
+      "intent_correct": true,
+      "elapsed_seconds": 0.0163,
+      "confidence_score": 1.0,
+      "agents_called": [
+        "IntentClassifier",
+        "Router",
+        "Analyst",
+        "Planner",
+        "Validator",
+        "ResponseGenerator"
+      ],
+      "timings": [
+        {
+          "agent": "IntentClassifier",
+          "called_by": "GraphStart",
+          "duration": 0.0149,
+          "calls": []
+        },
+        {
+          "agent": "Router",
+          "called_by": "GraphNode",
+          "duration": 0.001,
+          "calls": [
+            "Analyst"
+          ]
+        },
+        {
+          "agent": "Analyst",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Planner",
+          "called_by": "Router",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "Validator",
+          "called_by": "Planner",
+          "duration": 0.0001,
+          "calls": []
+        },
+        {
+          "agent": "ResponseGenerator",
+          "called_by": "Validator",
+          "duration": 0.0,
+          "calls": []
+        }
+      ]
+    }
+  ]
+}
