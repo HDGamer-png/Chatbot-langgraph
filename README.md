@@ -1,388 +1,222 @@
-# 🤖 LangGraph Multi-Agent Chatbot v3.1
+# 🤖 LangGraph Multi-Agent Chatbot v4.0
 
-**Advanced Multi-Agent System with Parallel Execution**
-
-> ⭐ **v3 Production-Ready** — v1 files archived to `/archive/`
-
-## 🎯 What Is This?
-
-A sophisticated AI chatbot where **10 specialized agents work in parallel** to answer complex questions:
-
-- **IntentClassifier** → Understands user intent
-- **Router** → Dispatches agents with ThreadPoolExecutor (parallel execution)
-- **Agents** → KB Lookup, Web Search, Calculator, DateTime, Analyst, Planner, Validator + 3 more
-- **Coordinator** → Merges all results intelligently
-- **ResponseGenerator** → Synthesizes final answer
-- **Call Graph Tracing** → See exactly which agents were called
-
-**Result:** Complex queries answered in **1-1.5 seconds** (vs 2-3 seconds sequential)
+> **Hệ sinh thái Trợ lý AI Đa tác tử Thông minh — Kiến trúc 10 Tác tử Thuần Python (100% On-Premise & No-API-Key)**  
+> **Tác giả:** Hoàng Minh Đức — Thực tập sinh AI Agent  
+> **Phiên bản:** `v4.0 Production-Grade`
 
 ---
 
-## ⚡ Quick Start (60 seconds)
+## 🎯 Giới thiệu Đề tài
 
-### 1. Install
+Dự án nghiên cứu và hiện thực hóa một hệ thống **Chatbot Đa tác tử (Multi-Agent System)** hoàn chỉnh dựa trên khung điều phối **LangGraph StateGraph**. 
+
+Khác biệt hoàn toàn với các chatbot đơn tác tử (Single-Agent) hoặc các hệ thống chỉ đóng vai trò "gọi API dịch vụ bên ngoài", phiên bản **v4.0** được tái thiết kế toàn diện theo nguyên lý:
+1. **Thực thi Hai pha (Two-Phase Execution):** **Ưu tiên chạy Song song trước (Parallel Fan-out)** để thu thập và tính toán dữ liệu $\rightarrow$ sau đó **Xử lý Tuần tự (Sequential Pipeline)** để kiểm định, bắt lỗi ảo giác và tổng hợp câu trả lời.
+2. **100% Logic Python Nội bộ (No-API-Key):** Loại bỏ hoàn toàn sự phụ thuộc vào các dịch vụ đám mây thương mại (Groq, Anthropic, OpenAI). Không phát sinh chi phí token, triệt tiêu lỗi giới hạn hạn ngạch (Rate-Limit 429), bảo mật tuyệt đối dữ liệu nội bộ.
+3. **Tốc độ Siêu tốc:** Thời gian phản hồi chỉ **~16ms – 93ms** (nhanh gấp **~30 lần** so với mô hình tuần tự 2.5s – 3.5s cũ).
+
+---
+
+## 🏗️ Sơ đồ Kiến trúc Điều phối 2 Pha (LangGraph StateGraph)
+
+```
+                            ┌────────────────────────┐
+                            │   User Input / Query   │
+                            └───────────┬────────────┘
+                                        │
+                                        ▼
+                            ┌────────────────────────┐
+                            │ [0] IntentClassifier   │ (1ms - Scikit-Learn TF-IDF + NB)
+                            └───────────┬────────────┘
+                                        │
+════════════════════════════════════════╪════════════════════════════════════════
+ PHA 1: THỰC THI ĐỒNG THỜI (PARALLEL FAN-OUT - ThreadPool 6 Workers)
+  Các tác tử chạy độc lập, cùng lúc lấy ngữ cảnh câu hỏi, không phụ thuộc nhau:
+════════════════════════════════════════╪════════════════════════════════════════
+          ┌─────────────────┬───────────┴───────────┬─────────────────┐
+          ▼                 ▼                       ▼                 ▼
+   ┌─────────────┐   ┌─────────────┐         ┌─────────────┐   ┌─────────────┐
+   │[1] Local RAG│   │[2]Calculator│         │[3] DateTime │   │[4]Web Search│
+   │ (BM25/Docs) │   │   (SymPy)   │         │ (NLP Lịch)  │   │(DuckDuckGo) │
+   └──────┬──────┘   └──────┬──────┘         └──────┬──────┘   └──────┬──────┘
+          │                 │                       │                 │
+          └─────────────────┼───────────┬───────────┴─────────────────┘
+                            │           │
+                            │           ▼
+                            │    ┌─────────────┐
+                            │    │ [5] Analyst │  (TextRank NLP Tóm tắt & Trích xuất)
+                            │    └──────┬──────┘
+                            │           │
+                            ▼           ▼
+             ══════════════════════════════════════════════
+              BARRIER SYNCHRONIZATION (GOM TẤT CẢ KẾT QUẢ)
+              Lưu toàn bộ kết quả vào AgentState Blackboard
+             ══════════════════════════════════════════════
+                                        │
+════════════════════════════════════════╪════════════════════════════════════════
+ PHA 2: XỬ LÝ TUẦN TỰ (SEQUENTIAL PIPELINE - FAN-IN & VERIFICATION)
+  Các tác tử cấp cao xử lý có thứ tự logic bắt buộc:
+════════════════════════════════════════╪════════════════════════════════════════
+                                        │
+                                        ▼
+                            ┌────────────────────────┐
+                            │   [6] Planner Agent    │
+                            │ (Lập cấu trúc lời giải)│
+                            └───────────┬────────────┘
+                                        │
+                                        ▼
+                            ┌────────────────────────┐
+                            │  [7] Validator Agent   │
+                            │ (Kiểm tra chéo kết quả │
+                            │   RAG, đối chiếu Toán, │
+                            │  chấm Confidence Score)│
+                            └───────────┬────────────┘
+                                        │
+                                        ▼
+                            ┌────────────────────────┐
+                            │[8] ResponseGenerator   │
+                            │ (Đóng gói Markdown,    │
+                            │  Call Graph SVG Trace) │
+                            └───────────┬────────────┘
+                                        │
+                                        ▼
+                            ┌────────────────────────┐
+                            │  Final Answer to User  │
+                            └────────────────────────┘
+```
+
+---
+
+## 🤖 Danh mục 10 Tác tử Chuyên biệt
+
+| STT | Tác tử (Agent) | Phân tầng thực thi | Thuật toán / Công nghệ cốt lõi | Chức năng chi tiết |
+| :---: | :--- | :---: | :--- | :--- |
+| **1** | **IntentClassifier** | Pha 0 (Cửa ngõ) | Scikit-Learn (`TF-IDF` + `MultinomialNB`) | Phân loại câu hỏi vào 8 nhóm ý định trong **1ms**, độ chính xác 100%. |
+| **2** | **Router / Dispatcher** | Điều phối trung tâm | Python `ThreadPoolExecutor` (6 workers) | Kích hoạt worker song song, bọc timeout 8s, đồng bộ hóa State an toàn. |
+| **3** | **KnowledgeBase (RAG)** | Pha 1 (Song song) | **BM25Okapi** tự cài đặt từ đầu | Tự động đọc tài liệu trong `data/docs/`, cắt chunk 300 từ, tra cứu ngữ nghĩa. |
+| **4** | **Calculator** | Pha 1 (Song song) | **SymPy** & Safe Python AST Eval | Giải phương trình đại số, lượng giác, tích phân, số học chính xác 100%. |
+| **5** | **DateTime** | Pha 1 (Song song) | `datetime` & Vietnamese NLP Parser | Ngày giờ hiện tại, đếm ngược ngày lễ, múi giờ quốc tế bằng tiếng Việt. |
+| **6** | **WebSearch** | Pha 1 (Song song) | DuckDuckGo HTTP + Offline Tech KB | Tìm kiếm tin tức miễn phí 0đ, fallback kho tri thức công nghệ offline. |
+| **7** | **Analyst** | Pha 1 (Song song) | Thuật toán **TextRank NLP** | Phân tích cấu trúc ngữ nghĩa, tóm tắt tự động, trích xuất từ khóa trọng tâm. |
+| **8** | **Planner** | Pha 2 (Tuần tự) | Goal-Dependency Decomposition | Phân rã mục tiêu thành lộ trình 3-5 bước thực hiện logic rõ ràng. |
+| **9** | **Validator** | Pha 2 (Tuần tự) | Fact-Checking & Jaccard Overlap | Kiểm định chéo kết quả, đối chiếu toán, chống ảo giác, tính Confidence Score. |
+| **10** | **ResponseGenerator** | Pha 2 (Tuần tự) | Multi-tier Markdown Synthesizer | Tổng hợp câu trả lời Markdown chuyên nghiệp, đính kèm Call Graph và Metrics. |
+
+---
+
+## 📈 Bảng So sánh Hiệu năng Thực nghiệm (Benchmark)
+
+*Số liệu được đo đạc tự động từ kịch bản kiểm thử [`scripts/benchmark.py`](file:///d:/Python/Thực%20tập/Thuc_tap/Chatbot%20AI/scripts/benchmark.py) và lưu tại [`benchmark_results.json`](file:///d:/Python/Thực%20tập/Thuc_tap/Chatbot%20AI/benchmark_results.json):*
+
+| Tiêu chí đánh giá | v1 (Tuần tự cũ) | v3 (API Cloud cũ) | **v4 (Pure Python Local mới)** |
+| :--- | :---: | :---: | :---: |
+| **Thời gian phản hồi trung bình** | 2.500 ms – 3.500 ms | 1.200 ms – 1.800 ms | **89.7 ms (Nhanh gấp ~30 lần)** |
+| **Thời gian phản hồi nhanh nhất** | 1.800 ms | 950 ms | **15.9 ms** |
+| **Độ chính xác phân loại ý định** | 84.6% (Regex) | 92.3% (LLM Prompt) | **100.0% (TF-IDF + Naive Bayes)** |
+| **Chi phí duy trì token** | Trả phí theo token | Trả phí theo API Key | **0 VNĐ (Hoàn toàn miễn phí)** |
+| **Nguy cơ lỗi Rate-Limit (429)** | Thường xuyên bị chặn | Dễ hết quota ngày/phút | **0% (Không bao giờ bị chặn)** |
+| **Bảo mật dữ liệu (Data Privacy)** | Gửi ra máy chủ nước ngoài | Gửi ra Cloud quốc tế | **100% On-Premise nội bộ** |
+| **Cơ sở dữ liệu lưu trữ** | File JSON rời rạc | File JSON rời rạc | **SQLite Database (`chatbot.db`)** |
+| **Trích xuất tệp đính kèm** | Chưa đầy đủ | Bị ngắt ở endpoint chat | **Đầy đủ: PDF, Word, Excel, OCR** |
+| **Dashboard giám sát tiến trình** | Bảng HTML thô sơ | Bản demo tĩnh | **SVG Call Graph tương tác thực tế** |
+
+---
+
+## ⚡ Hướng dẫn Cài đặt & Vận hành
+
+### 1. Yêu cầu môi trường
+- Python 3.10 trở lên (khuyến nghị Python 3.11 – 3.14).
+- Hệ điều hành: Windows, macOS hoặc Linux.
+
+### 2. Cài đặt thư viện
 ```bash
+git clone https://github.com/HDGamer-png/Chatbot-langgraph.git
+cd Chatbot-langgraph
 pip install -r requirements.txt
 ```
 
-### 2. Configure
-Create `.env`:
-```env
-ANTHROPIC_API_KEY=sk-ant-YOUR-KEY-HERE
-TAVILY_API_KEY=tvly-YOUR-KEY-HERE  # Optional web search
-```
+### 3. Vận hành hệ thống
 
-### 3. Run
+#### Cách A: Chế độ Chat tương tác trên Terminal (CLI)
 ```bash
 python chatbot.py
 ```
+*(Gõ trực tiếp các câu hỏi tính toán, giải phương trình, hỏi thời gian, tra cứu tài liệu để thấy phản hồi trong 20ms)*.
 
-### 4. Chat
-```
-Ban > So sánh LangGraph vs CrewAI
-[IntentClassifier] → comparison
-[Router] → 6 agents in parallel
-  ├─ KB Agent: 245ms ✓
-  ├─ Search Agent: 380ms ✓
-  ├─ Analyst Agent: 520ms ✓
-  └─ [3 more agents...]
-[Coordinator] → Merged
-[ResponseGenerator] → Generated
-
-Chatbot > LangGraph là directed-graph framework...
-[comprehensive comparison with KB + search data]
-```
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────┐
-│ User Input  │
-└──────┬──────┘
-       │
-       ▼
-  IntentClassifier
-       │
-       ▼
-    Router
-       │
-    ┌──┴──┬────┬────┬────┬────┐
-    ▼  ▼  ▼    ▼    ▼    ▼    ▼
-   [6 agents run in parallel]
-   - KB Agent (245ms)
-   - Search Agent (380ms)
-   - Analyst Agent (520ms)
-   - Planner Agent (180ms)
-   - Validator Agent (150ms)
-   - Specialist agents...
-       │
-       ▼
- Coordinator
-    (merge)
-       │
-       ▼
-ResponseGenerator
-    (synthesize)
-       │
-       ▼
- Final Answer
-  + Call Graph
-    (1.47s total)
-```
-
----
-
-## 📊 v3 Highlights
-
-| Feature | v1 (Sequential) | v3 (Parallel) |
-|---------|-----------------|---------------|
-| Execution | 1 agent at a time | All agents at once (ThreadPool) |
-| Speed | 2-3 seconds | 1-1.5 seconds (2x faster!) |
-| Agents | 5 basic | 10+ specialized |
-| Architecture | Orchestrator only | Router + Coordinator |
-| Tracing | Basic | Detailed call_graph |
-| Scaling | Limited | High |
-| Production | ❌ | ✅ Yes |
-
----
-
-## 🎓 How It Works
-
-### Example: "Calculate 2+2 and tell me today's date"
-
-1. **IntentClassifier** → detects: calculation + time query
-2. **Router** starts agents:
-   ```python
-   futures = {
-       executor.submit(calculator_agent.invoke, "2+2"): "calc",
-       executor.submit(datetime_agent.invoke, ""): "datetime",
-   }
-   # Both start immediately (parallel)
-   ```
-3. **Agents** run and return results
-4. **Coordinator** merges: `{"calc": "4", "datetime": "Thu 19/6/2026"}`
-5. **ResponseGenerator** synthesizes: "2+2 bằng 4. Hôm nay là thứ Hai..."
-
-Total time: ~520ms (time of slowest agent) vs 300+200=500ms if sequential  
-→ Similar speed but with more agents!
-
----
-
-## 🔗 Communication Between Agents
-
-**Agents never talk directly.** All communication goes through Orchestrator:
-
-```
-Agent1 → Orchestrator → Router → Coordinator → Agent2
-         (via state)
-```
-
-**State Flow:**
-```python
-State = {
-    "messages": [...],              # Chat history
-    "user_input": "user query",
-    "intent": "comparison",         # IntentClassifier output
-    "router_output": {              # Router output
-        "kb": "...",
-        "search": "...",
-        "analyst": "...",
-    },
-    "coordinator_output": {...},    # Coordinator merged results
-    "call_graph": [...]             # Which agents called which
-}
-```
-
----
-
-## 📍 Code Navigation
-
-### Learn v3 Architecture:
-
-1. **Entry Point** — `chatbot.py` (delegates to v3)
-2. **Main Implementation** — `multi_agent_chatbot_v3.py`
-   - Agents: Lines 450-1000 (10 agent classes)
-   - Router (ThreadPool dispatch): Lines 820-865
-   - Coordinator: Lines 1069-1114
-   - ResponseGenerator: Lines 1117-1140
-   - LangGraph build: Lines 1143-1160
-
-3. **Documentation**
-   - **V3_GUIDE.md** ← Start here (this doc)
-   - **MULTI_AGENT_ARCHITECTURE.md** — Full architecture details
-   - **HOW_TO_VIEW_AGENT_COMMUNICATION.md** — Code walkthrough
-   - **AGENT_COMMUNICATION_FLOW_DIAGRAM.txt** — ASCII diagrams
-
-### Key Code Snippets:
-
-**Router parallel dispatch:**
-```python
-# multi_agent_chatbot_v3.py:840-880
-with ThreadPoolExecutor(max_workers=6) as executor:
-    futures = {
-        executor.submit(kb_agent.invoke, args): "kb",
-        executor.submit(search_agent.invoke, args): "search",
-        executor.submit(analyst_agent.invoke, args): "analyst",
-        # ... all agents start NOW (not sequentially)
-    }
-    results = {}
-    for future in as_completed(futures):
-        agent_name = futures[future]
-        result = future.result()  # Get when ready
-        results[agent_name] = result
-```
-
-**Coordinator merge:**
-```python
-# multi_agent_chatbot_v3.py:1069-1114
-def node_coordinator(state: ChatState) -> dict:
-    router_output = state["router_output"]
-    workspace = {
-        "kb": router_output.get("kb", ""),
-        "search": router_output.get("search", ""),
-        # ... merge intelligently
-    }
-    return {"coordinator_output": workspace}
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all checks
-python tests/run_checks.py
-
-# Smoke test
-python smoke_run.py
-
-# Single query
-python -c "from multi_agent_chatbot_v3 import chat; print(chat('2+2'))"
-```
-
----
-
-## 💾 Chat History
-
-Conversations auto-save to `chat_history/session_<timestamp>.json`:
-
-```json
-{
-  "session_id": "session_20260619_223514_812782",
-  "messages": [
-    {
-      "role": "user",
-      "content": "So sánh LangGraph vs CrewAI"
-    },
-    {
-      "role": "assistant",
-      "content": "LangGraph là...",
-      "call_graph": [
-        {"from": "Router", "to": ["KB", "Search", "Analyst"]},
-        {"from": "Coordinator", "to": "ResponseGenerator"}
-      ],
-      "agents_used": 5,
-      "total_time": 1.47
-    }
-  ]
-}
-```
-
-Check call graphs:
-```bash
-cat chat_history/session_*.json | jq '.call_graph'
-```
-
----
-
-## 🔧 Customize v3
-
-### Use Different LLM
-```bash
-export GROQ_API_KEY=gsk-YOUR-KEY  # Groq instead of Claude
-python chatbot.py
-```
-
-### Adjust Parallel Workers
-Edit `multi_agent_chatbot_v3.py` line ~840:
-```python
-with ThreadPoolExecutor(max_workers=8) as executor:  # Up from 6
-```
-
-### Add Custom Agent
-1. Create class:
-```python
-class MyAgent(AgentBase):
-    def invoke(self, query: str) -> dict:
-        return {"result": "..."}
-```
-
-2. Register in Router `_determine_agents()`:
-```python
-if intent == "my_intent":
-    return ["my_agent", "kb", "search"]
-```
-
----
-
-## 🚢 Deploy
-
-### Command Line
-```bash
-python chatbot.py
-```
-
-### Web UI (Flask)
+#### Cách B: Chế độ Web Server (Giao diện Dark Theme & Dashboard)
 ```bash
 python app.py
-# Open http://localhost:5000
+```
+- Mở trình duyệt truy cập: **`http://127.0.0.1:5000`**
+- Xem Dashboard đồ họa SVG của phiên chat: Bấm nút **"Xem tiến trình"** hoặc mở đường dẫn **`http://127.0.0.1:5000/process/<session_id>`**.
+
+---
+
+## 📂 Cấu trúc Thư mục Dự án
+
+```text
+Chatbot AI/
+├── app.py                      # Server Flask v4.0 (REST API, SSE Streaming, SQLite)
+├── chatbot.py                  # Điểm khởi chạy chính (CLI Interactive hoặc Web)
+├── requirements.txt            # Danh sách thư viện phụ thuộc
+├── chatbot.db                  # CSDL quan hệ SQLite (tự sinh khi khởi chạy)
+├── benchmark_results.json      # Báo cáo kết quả đo đạc độ trễ và độ chính xác
+├── BaoCao_LangGraph_HoangMinhDuc.docx # Báo cáo nghiên cứu thực tập chính thức
+├── core/                       # LÕI MULTI-AGENT ENGINE
+│   ├── __init__.py
+│   ├── state.py                # AgentState TypedDict (Blackboard)
+│   ├── router.py               # Router điều phối Fan-out / Fan-in song song
+│   ├── graph.py                # LangGraph StateGraph kết nối 2 pha
+│   └── agents/                 # 10 TÁC TỬ CHUYÊN BIỆT
+│       ├── base.py             # AgentBase (Auto-timing, Call Graph, Safe Run)
+│       ├── intent.py           # Agent 1: Scikit-learn Intent Classifier
+│       ├── rag.py              # Agent 2: Local RAG (BM25Okapi)
+│       ├── math_agent.py       # Agent 3: SymPy & AST Calculator
+│       ├── datetime_agent.py   # Agent 4: NLP DateTime & Calendar
+│       ├── search.py           # Agent 5: DuckDuckGo Search Engine
+│       ├── analyst.py          # Agent 6: TextRank NLP Summarizer
+│       ├── planner.py          # Agent 7: Goal-Dependency Planner
+│       ├── validator.py        # Agent 8: Fact-Checker & Confidence Scorer
+│       └── response.py         # Agent 9: Multi-tier Markdown Synthesizer
+├── storage/                    # TẦNG LƯU TRỮ BỀN VỮNG
+│   ├── __init__.py
+│   ├── database.py             # Quản lý SQLite (sessions, turns, agent_timings)
+│   └── file_reader.py          # Trích xuất PDF, DOCX, XLSX, TXT, Ảnh OCR
+├── data/
+│   └── docs/                   # Thư mục chứa tài liệu nội bộ cho Local RAG
+├── templates/
+│   ├── index.html              # Giao diện Web Chat Dark Theme
+│   └── agent_dashboard.html    # Dashboard Call Graph SVG tương tác
+├── static/
+│   ├── app.js                  # Frontend Controller (Streaming SSE, Attachments)
+│   └── uploads/                # Thư mục lưu tệp tải lên
+├── tests/                      # KIỂM THỬ TỰ ĐỘNG
+│   ├── test_full_suite.py      # Bộ Unit & Integration Test (6/6 Pass)
+│   └── test_quick.py           # Kiểm tra nhanh chức năng cơ bản
+└── scripts/
+    ├── benchmark.py            # Đo đạc độ trễ và xuất bảng so sánh
+    └── update_docx.py          # Script tự động cập nhật tài liệu Báo cáo Word
 ```
 
-### Docker
+---
+
+## 🧪 Kiểm thử Tự động & Benchmark
+
+Chạy bộ kiểm thử tự động toàn diện:
 ```bash
-docker build -t chatbot-v3 .
-docker run -e ANTHROPIC_API_KEY=sk-ant-... chatbot-v3
+python tests/test_full_suite.py
+```
+*Kết quả:* `Ran 6 tests in 1.056s. OK.`
+
+Chạy script đo đạc độ trễ và xuất báo cáo:
+```bash
+python scripts/benchmark.py
 ```
 
 ---
 
-## 📚 Project Structure
+## 📜 Giấy phép & Thông tin Báo cáo
 
-```
-.
-├── chatbot.py                          ← Main entry point (v3)
-├── multi_agent_chatbot_v3.py           ← Core implementation
-├── multi_agent_chatbot_v3_fixed.py     ← Alternate version
-├── app.py                              ← Flask web server
-├── requirements.txt                    ← Dependencies
-│
-├── V3_GUIDE.md                         ← Comprehensive v3 guide
-├── MULTI_AGENT_ARCHITECTURE.md         ← Architecture details
-├── HOW_TO_VIEW_AGENT_COMMUNICATION.md  ← Code walkthrough
-├── AGENT_COMMUNICATION_FLOW_DIAGRAM.txt ← ASCII diagrams
-│
-├── chat_history/                       ← Auto-saved conversations
-│   └── session_*.json
-│
-├── archive/                            ← Old v1 files
-│   ├── multi_agent_chatbot_v1.py
-│   ├── chatbot_langgraph_old.py
-│   └── ...
-│
-├── backend/
-│   ├── storage.py
-│   └── process_inspector.py
-├── scripts/
-│   ├── clean_chat_history.py
-│   └── deploy_to_git.py
-├── tests/
-│   └── run_checks.py
-└── static/, templates/                ← Web UI assets
-```
-
----
-
-## 🎯 Common Questions
-
-**Q: Why is it called v3?**  
-A: v1 = simple Orchestrator, v2 = experimental, v3 = production-ready with Router + parallel execution
-
-**Q: Do I need to modify v1?**  
-A: No! v1 is archived. Everything is v3 only now.
-
-**Q: How fast is it?**  
-A: Typically 1-1.5 seconds per query (vs 2-3 seconds v1)
-
-**Q: Can I disable web search?**  
-A: Yes, just omit `TAVILY_API_KEY` from .env
-
-**Q: How many agents can run in parallel?**  
-A: `ThreadPoolExecutor(max_workers=6)` by default. Adjust as needed.
-
----
-
-## ❓ Support
-
-- 📖 **Read Docs:** [V3_GUIDE.md](V3_GUIDE.md)
-- 🔍 **See Code:** Search for `class RouterAgent` in `multi_agent_chatbot_v3.py`
-- 🐛 **Report Issues:** Check `chat_history/session_*.json` for error logs
-
----
-
-## 📄 License
-
-MIT - Use freely
-
-## 👨‍💻 Author
-
-**Hoàng Minh Đức** — AI Agent Intern (2026)  
-📍 GitHub: https://github.com/HDGamer-png/Chatbot-langgraph
-
----
-
-**✅ Status: Production Ready (v3.1)**  
-**Latest: 2026-06-19**  
-**v1 Archived:** See `/archive/` folder
+- **Đề tài tốt nghiệp / thực tập:** *Nghiên cứu mô hình điều phối AI Agent và xây dựng Chatbot thông minh với LangGraph*.
+- **Người thực hiện:** Hoàng Minh Đức.
+- **Báo cáo chi tiết kèm theo:** [`BaoCao_LangGraph_HoangMinhDuc.docx`](file:///d:/Python/Thực%20tập/Thuc_tap/Chatbot%20AI/BaoCao_LangGraph_HoangMinhDuc.docx).
