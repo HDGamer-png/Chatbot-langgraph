@@ -407,6 +407,24 @@ class ChatDatabase:
 
         return "\n".join(lines)
 
+    def get_recent_turns(self, session_id: str, limit: int = 5) -> list[dict]:
+        """
+        Lấy danh sách các lượt hỏi-đáp gần nhất dưới dạng danh sách dict.
+        Phục vụ cho bộ nhớ trượt (Sliding Window Context Memory).
+        """
+        cursor = self.conn.execute(
+            """
+            SELECT turn_id, user_query, final_answer, intent, confidence_score, timestamp
+            FROM turns
+            WHERE session_id = ?
+            ORDER BY turn_id DESC
+            LIMIT ?
+            """,
+            (session_id, limit),
+        )
+        rows = cursor.fetchall()
+        return [dict(r) for r in reversed(rows)]
+
     # -----------------------------------------------------------------------
     # Process / Agent timings — Dashboard data
     # -----------------------------------------------------------------------

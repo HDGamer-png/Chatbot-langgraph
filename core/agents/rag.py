@@ -17,8 +17,10 @@ bộ kiến thức tĩnh (fallback) gồm 6 chủ đề công nghệ.
 import math
 import os
 import re
+import pickle
+import hashlib
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 from .base import AgentBase
 
@@ -106,10 +108,12 @@ class KnowledgeBaseAgent(AgentBase):
         ),
     }
 
+    _CACHE_FILE = Path("data/.kb_index_cache.pkl")
+
     def __init__(self, called_by: str = "System"):
         """
         Khởi tạo agent và nạp tài liệu từ data/docs/.
-
+        Tận dụng Persistent BM25 Cache để tăng tốc độ nạp < 5ms.
         Nếu thư mục trống hoặc không tồn tại, sử dụng fallback KB.
         """
         super().__init__(called_by)
@@ -124,11 +128,87 @@ class KnowledgeBaseAgent(AgentBase):
         self._inverted_index: dict[str, list[tuple[int, int]]] = {}  # từ -> [(doc_idx, freq)]
         self._corpus_size: int = 0               # Tổng số chunk
         self._using_fallback: bool = False        # Đang dùng fallback KB?
+        self._from_cache: bool = False           # Chỉ mục nạp từ Persistent Cache?
 
-        # Nạp dữ liệu
+        # 1. Kiểm tra chữ ký tệp hiện tại trong data/docs/
+        current_sig = self._compute_files_signature()
+
+        # 2. Thử nạp từ persistent cache
+        if self._try_load_cache(current_sig):
+            self._from_cache = True
+        else:
+            # 3. Quét và xây dựng chỉ mục mới nếu cache miss hoặc có sửa đổi
+            self._load_documents()
+            if self._chunks:
+                self._build_index()
+                self._save_cache(current_sig)
+
+    def _compute_files_signature(self) -> dict[str, str]:
+        """Tính toán chữ ký trạng thái (size + mtime) của toàn bộ tệp trong data/docs/."""
+        docs_path = Path(self._DOCS_DIR)
+        sig = {}
+        if not docs_path.exists():
+            return sig
+        for p in sorted(docs_path.rglob("*")):
+            if p.is_file() and not p.name.startswith("."):
+                try:
+                    st = p.stat()
+                    rel_key = p.relative_to(docs_path).as_posix()
+                    sig[rel_key] = f"{st.st_size}_{st.st_mtime_ns}"
+                except OSError:
+                    pass
+        return sig
+
+    def _try_load_cache(self, current_sig: dict[str, str]) -> bool:
+        """Thử nạp chỉ mục BM25 từ tệp đệm nhị phân nếu tệp không có thay đổi."""
+        if not self._CACHE_FILE.exists() or not current_sig:
+            return False
+        try:
+            with open(self._CACHE_FILE, "rb") as f:
+                data = pickle.load(f)
+            cached_sig = data.get("signature")
+            if cached_sig == current_sig:
+                self._chunks = data.get("chunks", [])
+                self._doc_freqs = data.get("doc_freqs", {})
+                self._doc_lengths = data.get("doc_lengths", [])
+                self._avg_doc_len = data.get("avg_doc_len", 1.0)
+                self._inverted_index = data.get("inverted_index", {})
+                self._corpus_size = data.get("corpus_size", 0)
+                self._using_fallback = data.get("using_fallback", False)
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _save_cache(self, current_sig: dict[str, str]) -> None:
+        """Lưu trạng thái BM25 vào persistent cache."""
+        if not current_sig or self._using_fallback:
+            return
+        try:
+            data = {
+                "signature": current_sig,
+                "chunks": self._chunks,
+                "doc_freqs": self._doc_freqs,
+                "doc_lengths": self._doc_lengths,
+                "avg_doc_len": self._avg_doc_len,
+                "inverted_index": self._inverted_index,
+                "corpus_size": self._corpus_size,
+                "using_fallback": self._using_fallback,
+            }
+            self._CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._CACHE_FILE, "wb") as f:
+                pickle.dump(data, f)
+        except Exception as exc:
+            print(f"[KnowledgeBase] Lỗi khi ghi cache BM25: {exc}")
+
+    def rebuild_index(self, force: bool = False) -> None:
+        """Tái xây dựng toàn bộ chỉ mục (dùng khi vừa nạp thêm tệp mới)."""
+        current_sig = self._compute_files_signature()
+        self._chunks = []
         self._load_documents()
         if self._chunks:
             self._build_index()
+            self._save_cache(current_sig)
 
     # ================================================================== #
     #  TOKENIZATION

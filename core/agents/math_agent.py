@@ -165,8 +165,9 @@ class CalculatorAgent(AgentBase):
         """Trích xuất biểu thức toán từ câu hỏi tiếng Việt."""
         q = query.lower()
 
-        # Xóa các từ phụ tiếng Việt
-        q = re.sub(r'\b(giải|phương|trình|tìm|nghiệm|tính|của|là|bằng|cho|tôi|hãy|hỏi|số|kết quả)\b', ' ', q)
+        # Xóa các từ phụ tiếng Việt và ký tự đặc biệt
+        q = re.sub(r'\b(giải|phương|trình|tìm|nghiệm|tính|giá|trị|biểu|thức|toán|của|là|bằng|cho|tôi|hãy|hỏi|số|kết quả)\b', ' ', q)
+        q = q.replace(':', ' ').replace('?', ' ')
 
         # Thay thế từ tiếng Việt thành ký hiệu toán
         replacements = [

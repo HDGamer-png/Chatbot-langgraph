@@ -55,6 +55,10 @@ backup_files/
 *.sqlite3
 chatbot.db
 
+# Cache files
+*.pkl
+data/.kb_index_cache.pkl
+
 # Uploaded files
 static/uploads/*
 !static/uploads/.gitkeep

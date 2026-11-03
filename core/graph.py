@@ -11,8 +11,11 @@ Thiết kế linh hoạt:
 """
 
 import time
+import copy
+import hashlib
+from pathlib import Path
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from .state import AgentState, create_initial_state
 from .agents.intent import IntentClassifierAgent
@@ -27,9 +30,18 @@ from .router import RouterAgent
 # ══════════════════════════════════════════════════════════════════
 
 def node_classify_intent(state: dict) -> dict:
-    """Node 0: Phân loại ý định người dùng."""
+    """Node 0: Phân loại ý định người dùng (hỗ trợ giải quyết ngữ cảnh câu hỏi tiếp nối)."""
     agent = IntentClassifierAgent(called_by="GraphStart")
-    result = agent.safe_run(query=state["user_query"])
+    query = state["user_query"]
+
+    # Nếu là câu hỏi tiếp nối chứa đại từ phụ thuộc ngữ cảnh, bổ sung từ khóa từ recent_context
+    recent_ctx = state.get("recent_context", "")
+    follow_up_tokens = ("nó", "hàm đó", "hàm này", "file đó", "file này", "đoạn code trên", "lớp đó", "ở trên", "vừa rồi", "tiếp theo", "còn lỗi", "tại sao")
+    augmented_query = query
+    if any(token in query.lower() for token in follow_up_tokens) and recent_ctx:
+        augmented_query = f"{query} [Ngữ cảnh: {recent_ctx[:120]}]"
+
+    result = agent.safe_run(query=augmented_query)
     return {
         "intent": result.get("intent", "general"),
         "intent_confidence": result.get("confidence", 0.0),
@@ -45,8 +57,17 @@ def node_classify_intent(state: dict) -> dict:
 def node_router_parallel(state: dict) -> dict:
     """Node 1: Điều phối song song — Fan-out các Worker Agent."""
     router = RouterAgent()
+    query = state["user_query"]
+    recent_ctx = state.get("recent_context", "")
+
+    # Bổ sung ngữ cảnh nếu truy vấn ngắn hoặc tiếp nối
+    follow_up_tokens = ("nó", "hàm đó", "hàm này", "file đó", "file này", "đoạn code trên", "lớp đó", "ở trên", "vừa rồi")
+    augmented_query = query
+    if any(token in query.lower() for token in follow_up_tokens) and recent_ctx:
+        augmented_query = f"{query} {recent_ctx[:120]}"
+
     result = router.safe_run(
-        query=state["user_query"],
+        query=augmented_query,
         intent=state["intent"],
         kb_context=state.get("kb_context", ""),
     )
@@ -103,7 +124,7 @@ def node_validator(state: dict) -> dict:
 
 
 def node_response_generator(state: dict) -> dict:
-    """Node 4 (Tuần tự cuối): Tổng hợp câu trả lời Markdown."""
+    """Node 4 (Tuần tự cuối): Tổng hợp báo cáo kỹ thuật Markdown chuyên sâu."""
     agent = ResponseGeneratorAgent(called_by="Validator")
     result = agent.safe_run(
         query=state["user_query"],
@@ -117,12 +138,14 @@ def node_response_generator(state: dict) -> dict:
         validation=state.get("validation", ""),
         confidence_score=state.get("confidence_score", 0.0),
         agent_timings=state.get("agent_timings", []),
+        history_summary=state.get("history_summary", ""),
+        recent_context=state.get("recent_context", ""),
     )
     return {
         "final_answer": result.get("final_answer", "Xin lỗi, tôi không thể tạo câu trả lời."),
         "agent_timings": state.get("agent_timings", []) + [agent.get_timing()],
         "call_graph": state.get("call_graph", []) + agent.get_call_edges(),
-        "log": state.get("log", []) + [agent._log("Câu trả lời cuối cùng đã được tổng hợp.")],
+        "log": state.get("log", []) + [agent._log("Báo cáo kỹ thuật cuối cùng đã được tổng hợp.")],
     }
 
 
@@ -207,11 +230,21 @@ def build_graph():
 
 
 # ══════════════════════════════════════════════════════════════════
-#  HANDLE QUERY — Hàm tiện ích xử lý một câu hỏi hoàn chỉnh
+#  HANDLE QUERY & QUERY CACHE
 # ══════════════════════════════════════════════════════════════════
 
 # Cache graph toàn cục để không phải build lại mỗi lượt
 _graph = None
+
+# In-memory LRU Query Cache (< 1ms cho câu hỏi lặp lại)
+_QUERY_CACHE: Dict[str, dict] = {}
+_MAX_CACHE_SIZE = 128
+
+
+def clear_query_cache() -> None:
+    """Xóa sạch bộ nhớ đệm truy vấn."""
+    global _QUERY_CACHE
+    _QUERY_CACHE.clear()
 
 
 def handle_query(
@@ -222,41 +255,121 @@ def handle_query(
     history: list[dict] | None = None,
 ) -> dict:
     """
-    Xử lý một câu hỏi từ người dùng qua toàn bộ pipeline Multi-Agent.
+    Xử lý một câu hỏi từ người dùng qua toàn bộ pipeline Multi-Agent v4.1.
+
+    Tích hợp:
+      1. In-memory LRU Query Cache (phản hồi tức thì < 1ms với câu hỏi lặp lại).
+      2. Multi-turn Context Sliding Window Memory.
+      3. Tự động tóm tắt TextRank cho các lượt trao đổi cũ hơn 3 turns.
 
     Args:
         session_id: ID phiên hội thoại.
         user_query: Câu hỏi của người dùng.
         turn_id: Số thứ tự lượt hỏi.
         user_id: ID người dùng (tùy chọn).
-        history: Lịch sử hội thoại trước đó.
+        history: Lịch sử hội thoại trước đó (nếu None, tự lấy từ SQLite).
 
     Returns:
-        dict chứa final_answer, intent, agent_timings, call_graph, log.
+        dict chứa final_answer, intent, confidence_score, agent_timings, call_graph, log.
     """
-    global _graph
+    global _graph, _QUERY_CACHE
     if _graph is None:
         _graph = build_graph()
 
-    # Tạo state khởi tạo
+    clean_q = user_query.strip()
+    cache_key = f"{session_id}_{hashlib.md5(clean_q.lower().encode('utf-8')).hexdigest()}"
+
+    # 1. Kiểm tra LRU Query Cache
+    if cache_key in _QUERY_CACHE:
+        cached_result = copy.deepcopy(_QUERY_CACHE[cache_key])
+        cached_result["turn_id"] = turn_id
+        cached_result["log"] = cached_result.get("log", []) + [
+            f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] [QueryCache] "
+            f"Phản hồi siêu tốc từ LRU Cache (< 1ms)."
+        ]
+        return cached_result
+
+    # 2. Tự động lấy lịch sử từ SQLite database nếu history chưa được cấp
+    if history is None and session_id:
+        try:
+            from storage.database import ChatDatabase
+            db_path = Path("chatbot.db")
+            if db_path.exists():
+                db = ChatDatabase(str(db_path))
+                history = db.get_recent_turns(session_id, limit=6)
+        except Exception:
+            history = []
+
+    # 3. Quản lý Bộ nhớ Ngữ cảnh Trượt (Sliding Window & Summarization)
+    recent_context = ""
+    history_summary = ""
+    if history:
+        if len(history) <= 3:
+            lines = []
+            for t in history:
+                q = t.get("user_query", "").strip()
+                a = t.get("final_answer", "").strip()
+                if q:
+                    short_a = a[:120] + "..." if len(a) > 120 else a
+                    lines.append(f"User: {q}\nBot: {short_a}")
+            recent_context = "\n---\n".join(lines)
+        else:
+            older_turns = history[:-2]
+            recent_2 = history[-2:]
+
+            older_texts = []
+            for t in older_turns:
+                q = t.get("user_query", "").strip()
+                a = t.get("final_answer", "").strip()
+                if q:
+                    older_texts.append(f"Câu hỏi: {q}. Trả lời: {a[:100]}.")
+
+            if older_texts:
+                try:
+                    from .agents.analyst import AnalystAgent
+                    analyst = AnalystAgent()
+                    analysis_res = analyst.run(text="\n".join(older_texts), topic="lịch sử hội thoại")
+                    history_summary = analysis_res.get("analysis", "")[:200]
+                except Exception:
+                    history_summary = " ".join([t.get("user_query", "") for t in older_turns[:2]])
+
+            lines = []
+            for t in recent_2:
+                q = t.get("user_query", "").strip()
+                a = t.get("final_answer", "").strip()
+                if q:
+                    short_a = a[:120] + "..." if len(a) > 120 else a
+                    lines.append(f"User: {q}\nBot: {short_a}")
+            recent_context = "\n---\n".join(lines)
+
+    # 4. Khởi tạo AgentState
     initial_state = create_initial_state(
         session_id=session_id,
         user_query=user_query,
         turn_id=turn_id,
         user_id=user_id,
         history=history,
+        history_summary=history_summary,
+        recent_context=recent_context,
     )
 
-    # Chạy đồ thị
+    # 5. Thực thi đồ thị Multi-Agent
     start_time = time.time()
     final_state = _graph.invoke(initial_state)
     total_time = time.time() - start_time
 
-    # Bổ sung tổng thời gian
     final_state["log"] = final_state.get("log", []) + [
         f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] [Pipeline] "
         f"Tổng thời gian xử lý: {total_time:.3f}s"
     ]
 
-    return dict(final_state)
+    res_dict = dict(final_state)
+
+    # 6. Cập nhật LRU Query Cache
+    if len(_QUERY_CACHE) >= _MAX_CACHE_SIZE:
+        oldest_k = next(iter(_QUERY_CACHE))
+        del _QUERY_CACHE[oldest_k]
+    _QUERY_CACHE[cache_key] = copy.deepcopy(res_dict)
+
+    return res_dict
 

@@ -11,6 +11,14 @@ import time
 import json
 from pathlib import Path
 
+# Cấu hình UTF-8 cho Windows Terminal
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Thêm root vào sys.path
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))

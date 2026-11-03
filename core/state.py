@@ -42,6 +42,10 @@ class AgentState(TypedDict):
     log: List[str]                 # Nhật ký xử lý từng bước
     conversation_history: List[dict]  # Lịch sử hội thoại (user_query, final_answer)
 
+    # ── Vùng 6: Quản lý Bộ nhớ Ngữ cảnh (Multi-turn Context Memory) ──────
+    history_summary: str           # Tóm tắt cô đọng các lượt cũ (qua TextRank)
+    recent_context: str            # Ngữ cảnh nối kết hợp của 2-3 lượt gần nhất
+
 
 def create_initial_state(
     session_id: str,
@@ -49,6 +53,8 @@ def create_initial_state(
     turn_id: int = 0,
     user_id: str = "",
     history: List[dict] | None = None,
+    history_summary: str = "",
+    recent_context: str = "",
 ) -> AgentState:
     """Tạo state khởi tạo cho mỗi lượt hội thoại."""
     return AgentState(
@@ -71,5 +77,7 @@ def create_initial_state(
         call_graph=[],
         log=[],
         conversation_history=history or [],
+        history_summary=history_summary,
+        recent_context=recent_context,
     )
 

@@ -1,19 +1,23 @@
-# 🤖 LangGraph Multi-Agent Chatbot v4.0
+# 🤖 LangGraph Multi-Agent Chatbot v4.1 (Technical Assistant)
 
-> **Hệ sinh thái Trợ lý AI Đa tác tử Thông minh — Kiến trúc 10 Tác tử Thuần Python (100% On-Premise & No-API-Key)**  
+> **Hệ sinh thái Trợ lý AI Chuyên gia Phân tích Kỹ thuật & Thẩm định Mã nguồn / Tài liệu Nội bộ**  
+> **Kiến trúc 10 AI Agent Thuần Python (100% On-Premise & No-API-Key)**  
 > **Tác giả:** Hoàng Minh Đức — Thực tập sinh AI Agent  
-> **Phiên bản:** `v4.0 Production-Grade`
+> **Phiên bản:** `v4.1 Production-Grade`
 
 ---
 
-## 🎯 Giới thiệu Đề tài
+## 🎯 Định vị Đề tài & Mục đích Duy nhất
 
-Dự án nghiên cứu và hiện thực hóa một hệ thống **Chatbot Đa tác tử (Multi-Agent System)** hoàn chỉnh dựa trên khung điều phối **LangGraph StateGraph**. 
+Dự án nghiên cứu và hiện thực hóa một hệ thống **Chatbot Đa tác tử (Multi-Agent System)** hoàn chỉnh dựa trên khung điều phối **LangGraph StateGraph**, hướng tới một mục đích chuyên biệt hóa cao:
+**"Trợ lý AI Chuyên gia Phân tích Kỹ thuật & Thẩm định Mã nguồn / Tài liệu Nội bộ" (Local Codebase & Technical Document Intelligence Assistant)**.
 
-Khác biệt hoàn toàn với các chatbot đơn tác tử (Single-Agent) hoặc các hệ thống chỉ đóng vai trò "gọi API dịch vụ bên ngoài", phiên bản **v4.0** được tái thiết kế toàn diện theo nguyên lý:
-1. **Thực thi Hai pha (Two-Phase Execution):** **Ưu tiên chạy Song song trước (Parallel Fan-out)** để thu thập và tính toán dữ liệu $\rightarrow$ sau đó **Xử lý Tuần tự (Sequential Pipeline)** để kiểm định, bắt lỗi ảo giác và tổng hợp câu trả lời.
-2. **100% Logic Python Nội bộ (No-API-Key):** Loại bỏ hoàn toàn sự phụ thuộc vào các dịch vụ đám mây thương mại (Groq, Anthropic, OpenAI). Không phát sinh chi phí token, triệt tiêu lỗi giới hạn hạn ngạch (Rate-Limit 429), bảo mật tuyệt đối dữ liệu nội bộ.
-3. **Tốc độ Siêu tốc:** Thời gian phản hồi chỉ **~16ms – 93ms** (nhanh gấp **~30 lần** so với mô hình tuần tự 2.5s – 3.5s cũ).
+### Các Điểm Đột Phá Trong Phiên Bản v4.1:
+1. **Xử lý Dữ liệu Đa định dạng (Data Layer):** Đọc hiểu **MỌI ngôn ngữ lập trình** (Python, JS, TS, Java, C++, C#, Go, Rust, PHP, SQL, Shell, Dockerfile...), tài liệu văn phòng (PDF, Word .docx, Excel .xlsx, PowerPoint .pptx), hình ảnh (metadata & OCR), tệp nén .zip và **đính kèm toàn bộ thư mục dự án**.
+2. **Persistent BM25 Cache & Incremental Scan:** Lưu đệm nhị phân chỉ mục ngược BM25 kết hợp chữ ký tệp Checksum. Tốc độ nạp ấm tài liệu đạt **< 25ms** (thay vì quét lại toàn bộ ổ đĩa).
+3. **Bộ nhớ Ngữ cảnh Trượt (Multi-turn Context Sliding Window):** Duy trì sự liền mạch qua nhiều lượt hỏi-đáp, tự động giải quyết đại từ chỉ định và tóm tắt lịch sử cũ bằng TextRank NLP.
+4. **Phản hồi Chuẩn Kỹ sư Trưởng (Tech Lead Synthesizer):** Tự động phát hiện khối mã nguồn, đánh giá kiến trúc, chỉ số thuật toán $O(n)$, trích dẫn nguồn minh bạch và lập lộ trình thực thi theo thứ tự ưu tiên.
+5. **100% Logic Python Nội bộ (No-API-Key):** Hoàn toàn độc lập, 0 VNĐ chi phí token, không rủi ro Rate-Limit, bảo mật dữ liệu tuyệt đối On-Premise.
 
 ---
 
