@@ -86,6 +86,7 @@ def node_validator(state: dict) -> dict:
         intent=state["intent"],
         kb_context=state.get("kb_context", ""),
         calc_result=state.get("calc_result", ""),
+        datetime_result=state.get("datetime_result", ""),
         web_results=state.get("web_results", ""),
         analysis=state.get("analysis", ""),
         planning=state.get("planning", ""),
