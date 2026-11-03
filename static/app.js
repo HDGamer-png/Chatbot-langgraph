@@ -2,7 +2,9 @@ const messagesContainer = document.getElementById("messages");
 const messageInput = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
 const attachBtn = document.getElementById("attachBtn");
+const attachFolderBtn = document.getElementById("attachFolderBtn");
 const fileInput = document.getElementById("fileInput");
+const folderInput = document.getElementById("folderInput");
 const attachmentList = document.getElementById("attachmentList");
 const newSessionBtn = document.getElementById("newSessionBtn");
 const loadSessionBtn = document.getElementById("loadSessionBtn");
@@ -89,8 +91,10 @@ function renderAttachmentsHtml(attachments) {
                     const safeName = escapeHtml(item.filename || item.url || "file");
                     const safeUrl = escapeHtml(item.url || "#");
                     const isImage = item.type?.startsWith("image/");
+                    const isFolder = item.type === "folder";
+                    const icon = isFolder ? "📁" : (isImage ? `<img src="${safeUrl}" alt="${safeName}" style="max-width:36px; max-height:36px; border-radius:8px;" />` : "📄");
                     return `<div class="attachment-pill">
-                        ${isImage ? `<img src="${safeUrl}" alt="${safeName}" style="max-width:36px; max-height:36px; border-radius:8px;" />` : "📎"}
+                        ${icon}
                         <a href="${safeUrl}" target="_blank" rel="noreferrer noopener">${safeName}</a>
                     </div>`;
                 })
@@ -550,8 +554,10 @@ function renderAttachmentQueue() {
         pill.className = "attachment-pill";
         const safeName = escapeHtml(item.filename || item.url || "file");
         const isImage = item.type?.startsWith("image/");
+        const isFolder = item.type === "folder";
+        const icon = isFolder ? "📁" : (isImage ? `<img src="${escapeHtml(item.url)}" alt="${safeName}" style="max-width:24px; max-height:24px; border-radius:6px;" />` : "📄");
         pill.innerHTML = `
-            ${isImage ? `<img src="${escapeHtml(item.url)}" alt="${safeName}" style="max-width:24px; max-height:24px; border-radius:6px;" />` : "📎"}
+            ${icon}
             <a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer noopener">${safeName}</a>
             <button type="button" aria-label="Xoá" data-index="${index}">×</button>
         `;
@@ -597,6 +603,50 @@ function handlePasteAttachment(event) {
     if (!file) return;
     event.preventDefault();
     addAttachment(file);
+}
+
+async function uploadFolder(files, folderName) {
+    const form = new FormData();
+    form.append("folder_name", folderName);
+    const safeFiles = Array.from(files).slice(0, 100);
+    safeFiles.forEach(file => {
+        form.append("files", file);
+        form.append("paths", file.webkitRelativePath || file.name);
+    });
+
+    const response = await fetch("/api/upload-folder", {
+        method: "POST",
+        body: form,
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+async function handleFolderInputChange(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    let rootFolder = "Thư mục";
+    if (files[0].webkitRelativePath) {
+        const parts = files[0].webkitRelativePath.split("/");
+        if (parts.length > 1) {
+            rootFolder = parts[0];
+        }
+    }
+
+    try {
+        const uploaded = await uploadFolder(files, rootFolder);
+        queuedAttachments.push(uploaded);
+        renderAttachmentQueue();
+    } catch (error) {
+        console.error("Folder upload error:", error);
+        displayError(`Không thể đính kèm thư mục: ${error.message}`);
+    } finally {
+        if (folderInput) folderInput.value = "";
+    }
 }
 
 function handleFileInputChange(event) {
@@ -669,6 +719,10 @@ function openProcessPage() {
 sendBtn.addEventListener("click", sendMessage);
 attachBtn.addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", handleFileInputChange);
+if (attachFolderBtn && folderInput) {
+    attachFolderBtn.addEventListener("click", () => folderInput.click());
+    folderInput.addEventListener("change", handleFolderInputChange);
+}
 messageInput.addEventListener("paste", handlePasteAttachment);
 messageInput.addEventListener("dragover", (e) => e.preventDefault());
 messageInput.addEventListener("drop", handleFileDrop);

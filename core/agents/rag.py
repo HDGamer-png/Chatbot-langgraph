@@ -159,28 +159,26 @@ class KnowledgeBaseAgent(AgentBase):
 
     def _load_documents(self) -> None:
         """
-        Quét thư mục data/docs/ và nạp các file .txt, .md.
+        Quét đệ quy toàn bộ thư mục data/docs/ và mọi thư mục con bên trong.
+        Hỗ trợ MỌI định dạng: Mã nguồn (mọi ngôn ngữ), PDF, Word (.docx),
+        Excel (.xlsx), PowerPoint (.pptx), Ảnh, Văn bản (.txt, .md, .json, .yaml...).
         Nếu không tìm thấy tài liệu, chuyển sang fallback KB.
         """
-        docs_path = Path(self._DOCS_DIR)
-
-        if docs_path.exists() and docs_path.is_dir():
-            # Quét tất cả file .txt và .md
-            for file_path in sorted(docs_path.rglob("*")):
-                if file_path.suffix.lower() in ('.txt', '.md') and file_path.is_file():
-                    try:
-                        content = file_path.read_text(encoding="utf-8")
-                        if content.strip():
-                            chunks = self._split_into_chunks(content)
-                            source_name = file_path.relative_to(docs_path).as_posix()
-                            for chunk_text in chunks:
-                                self._chunks.append({
-                                    "text": chunk_text,
-                                    "source": source_name,
-                                })
-                    except (OSError, UnicodeDecodeError):
-                        # Bỏ qua file không đọc được
-                        continue
+        try:
+            from storage.file_reader import scan_documents
+            doc_items = scan_documents(self._DOCS_DIR)
+            for item in doc_items:
+                content = item.get("text", "")
+                rel_path = item.get("rel_path", item.get("filename", "unknown"))
+                if content and content.strip():
+                    chunks = self._split_into_chunks(content)
+                    for chunk_text in chunks:
+                        self._chunks.append({
+                            "text": chunk_text,
+                            "source": rel_path,
+                        })
+        except Exception as exc:
+            print(f"[KnowledgeBase] Lỗi khi nạp tài liệu từ {self._DOCS_DIR}: {exc}")
 
         # Nếu không có chunk nào từ file, dùng fallback
         if not self._chunks:

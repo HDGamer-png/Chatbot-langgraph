@@ -551,9 +551,11 @@
                 <input type="text" id="messageInput" placeholder="Nhập câu hỏi của bạn..." autocomplete="off" />
                 <button id="sendBtn">Gửi</button>
             </div>
-            <button id="attachBtn" type="button">Đính kèm</button>
+            <button id="attachBtn" type="button" title="Đính kèm tệp lẻ (Mã nguồn mọi ngôn ngữ, PDF, Word, Excel, PowerPoint, Ảnh, ZIP)">📎 Đính kèm tệp</button>
+            <button id="attachFolderBtn" type="button" class="secondary" title="Đính kèm toàn bộ thư mục dự án">📁 Đính kèm thư mục</button>
             <button id="clearBtn" class="secondary" type="button">Xoá chat</button>
             <input type="file" id="fileInput" hidden multiple />
+            <input type="file" id="folderInput" hidden webkitdirectory directory multiple />
             <div class="attachment-panel" id="attachmentList"></div>
         </div>
     </div>

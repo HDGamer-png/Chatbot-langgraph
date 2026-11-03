@@ -55,8 +55,9 @@ db = ChatDatabase(str(BASE_DIR / "chatbot.db"))
 # ── Hàm trợ giúp trích xuất tệp đính kèm ──────────────────────────────
 def _process_attachments(attachments: list[dict]) -> tuple[list[dict], str]:
     """
-    Trích xuất văn bản từ các tệp đính kèm được tải lên.
-    Hỗ trợ: PDF, Word (.docx), Excel (.xlsx), Text (.txt, .md, .py...), Ảnh.
+    Trích xuất văn bản từ các tệp và thư mục đính kèm được tải lên.
+    Hỗ trợ: Toàn bộ mã nguồn (mọi ngôn ngữ), Thư mục dự án, PDF, Word (.docx),
+    Excel (.xlsx), PowerPoint (.pptx), Ảnh (PNG, JPG...), File ZIP.
     """
     contexts = []
     lines = []
@@ -66,7 +67,7 @@ def _process_attachments(attachments: list[dict]) -> tuple[list[dict], str]:
         content_type = att.get("type") or ""
         url = att.get("url") or ""
 
-        # Tìm file trên đĩa
+        # Tìm file hoặc thư mục trên đĩa
         file_path = None
         if url.startswith("/static/uploads/"):
             safe_name = url.replace("/static/uploads/", "").strip()
@@ -86,11 +87,12 @@ def _process_attachments(attachments: list[dict]) -> tuple[list[dict], str]:
             "text": extracted,
             "path": str(file_path) if file_path else None,
         })
-        lines.append(f"📄 Tệp đính kèm: {filename}\n{note}")
+        prefix = "📁 Thư mục đính kèm" if (content_type == "folder" or (file_path and file_path.is_dir())) else "📄 Tệp đính kèm"
+        lines.append(f"{prefix}: {filename}\n{note}")
 
     summary = "\n\n".join(lines)
     if summary:
-        summary = "Dưới đây là nội dung trích xuất từ tệp đính kèm:\n\n" + summary
+        summary = "Dưới đây là nội dung trích xuất từ tệp/thư mục đính kèm:\n\n" + summary
     return contexts, summary
 
 
@@ -123,6 +125,56 @@ def upload_file():
             "url": f"/static/uploads/{safe_name}",
             "type": uploaded_file.content_type or "application/octet-stream",
             "size": filepath.stat().st_size,
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/upload-folder", methods=["POST"])
+def upload_folder():
+    """
+    Endpoint tải lên toàn bộ thư mục (kèm cấu trúc cây tệp tin con).
+    Nhận danh sách files và relative paths (webkitRelativePath).
+    """
+    try:
+        files = request.files.getlist("files")
+        paths = request.form.getlist("paths")
+        folder_name = request.form.get("folder_name", "folder").strip() or "folder"
+
+        if not files:
+            return jsonify({"error": "Không có tệp nào trong thư mục được chọn."}), 400
+
+        # Tạo thư mục lưu trữ riêng cho folder tải lên
+        folder_token = f"folder_{uuid.uuid4().hex[:8]}_{secure_filename(folder_name) or 'dir'}"
+        target_dir = UPLOAD_DIR / folder_token
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        total_size = 0
+        saved_count = 0
+
+        for idx, f in enumerate(files):
+            if not f or f.filename == "":
+                continue
+
+            rel_str = paths[idx] if idx < len(paths) else f.filename
+            # Chuẩn hóa đường dẫn tương đối an toàn, loại bỏ Directory Traversal
+            safe_parts = [secure_filename(p) for p in Path(rel_str).parts if p and p != ".."]
+            if not safe_parts:
+                continue
+
+            save_file_path = target_dir.joinpath(*safe_parts)
+            save_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            f.save(save_file_path)
+            total_size += save_file_path.stat().st_size
+            saved_count += 1
+
+        return jsonify({
+            "filename": f"📁 {folder_name} ({saved_count} tệp)",
+            "url": f"/static/uploads/{folder_token}",
+            "type": "folder",
+            "size": total_size,
+            "count": saved_count,
         })
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
