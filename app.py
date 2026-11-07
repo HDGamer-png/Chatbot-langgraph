@@ -393,6 +393,32 @@ def process_page(session_id: str):
     return render_template("agent_dashboard.html", session_id=session_id)
 
 
+@app.route("/api/users/<user_id>", methods=["GET"])
+def get_user(user_id: str):
+    """Lấy thông tin hồ sơ người dùng."""
+    try:
+        user_info = db.get_user_profile(user_id)
+        if not user_info:
+            return jsonify({
+                "user_id": user_id,
+                "profile": {"name": "", "email": ""}
+            })
+        return jsonify(user_info)
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
+@app.route("/api/users/<user_id>", methods=["POST"])
+def save_user(user_id: str):
+    """Lưu thông tin hồ sơ người dùng."""
+    try:
+        data = request.get_json() or {}
+        saved = db.save_user_profile(user_id, data)
+        return jsonify(saved)
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
 # Chạy trực tiếp qua lệnh python app.py
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

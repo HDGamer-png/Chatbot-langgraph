@@ -76,7 +76,7 @@ class DateTimeAgent(AgentBase):
     def __init__(self, called_by: str = "Router"):
         super().__init__(called_by=called_by)
 
-    def run(self, query: str = "") -> dict:
+    def run(self, query: str = "", **kwargs) -> dict:
         """
         Phân tích câu hỏi về thời gian và trả về kết quả.
 

@@ -88,7 +88,7 @@ class PlannerAgent(AgentBase):
     #  Phương thức chính                                                  #
     # ------------------------------------------------------------------ #
 
-    def run(self, query: str, intent: str, context: str = "") -> dict:
+    def run(self, query: str = "", intent: str = "general", context: str = "", **kwargs) -> dict:
         """
         Sinh kế hoạch hành động dựa trên ý định và dữ liệu thu thập.
 

@@ -111,6 +111,17 @@ class ChatDatabase:
                 )
             """)
 
+            # --- Bảng users (Lưu hồ sơ người dùng) ---
+            self.conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id     TEXT PRIMARY KEY,
+                    name        TEXT DEFAULT '',
+                    email       TEXT DEFAULT '',
+                    created_at  TEXT NOT NULL,
+                    updated_at  TEXT NOT NULL
+                )
+            """)
+
     # -----------------------------------------------------------------------
     # Session management — Quản lý phiên hội thoại
     # -----------------------------------------------------------------------
@@ -424,6 +435,56 @@ class ChatDatabase:
         )
         rows = cursor.fetchall()
         return [dict(r) for r in reversed(rows)]
+
+    # -----------------------------------------------------------------------
+    # User Profile management — Quản lý hồ sơ người dùng
+    # -----------------------------------------------------------------------
+
+    def get_user_profile(self, user_id: str) -> Optional[dict]:
+        """Lấy thông tin hồ sơ người dùng theo user_id."""
+        if not user_id:
+            return None
+        cursor = self.conn.execute(
+            "SELECT user_id, name, email, updated_at FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "user_id": row["user_id"],
+            "profile": {
+                "name": row["name"],
+                "email": row["email"],
+                "updated_at": row["updated_at"],
+            },
+        }
+
+    def save_user_profile(self, user_id: str, profile: dict) -> dict:
+        """Lưu hoặc cập nhật hồ sơ người dùng."""
+        now = datetime.now().isoformat()
+        name = profile.get("name", "").strip() if isinstance(profile, dict) else ""
+        email = profile.get("email", "").strip() if isinstance(profile, dict) else ""
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO users (user_id, name, email, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    name = excluded.name,
+                    email = excluded.email,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, name, email, now, now),
+            )
+        return {
+            "user_id": user_id,
+            "profile": {
+                "name": name,
+                "email": email,
+                "updated_at": now,
+            },
+        }
 
     # -----------------------------------------------------------------------
     # Process / Agent timings — Dashboard data

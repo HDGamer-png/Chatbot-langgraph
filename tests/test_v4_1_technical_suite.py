@@ -35,6 +35,11 @@ class TestTechnicalAssistantV41(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         clear_query_cache()
+        if hasattr(cls, "db") and cls.db:
+            try:
+                cls.db.close()
+            except Exception:
+                pass
         p = Path(cls.db_path)
         if p.exists():
             try:
@@ -131,3 +136,4 @@ class TestTechnicalAssistantV41(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
