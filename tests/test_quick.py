@@ -1,29 +1,28 @@
 import sys
+import unittest
 from pathlib import Path
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8")
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BASE_DIR))
 
 from core.graph import handle_query
 
-queries = [
-    "tính 25 * 4 + 10",
-    "bây giờ là mấy giờ",
-    "xin chào bạn",
-    "langgraph là gì",
-]
 
-for q in queries:
-    print(f"\n{'='*50}\nQUERY: {q}\n{'='*50}")
-    res = handle_query(session_id="test_quick", user_query=q)
-    print("Intent:", res.get("intent"))
-    print("Confidence:", res.get("confidence_score"))
-    print("Final answer snippet:\n", res.get("final_answer", "")[:250])
-    print("\nTimings:")
-    for t in res.get("agent_timings", []):
-        print(f" - {t['agent']}: {t['duration']:.4f}s (called by: {t['called_by']})")
+class TestQuickQueries(unittest.TestCase):
+    # Kiểm tra nhanh các truy vấn cơ bản và xác thực phản hồi của hệ thống Multi-Agent
+    def test_quick_queries(self):
+        queries = [
+            ("tính 25 * 4 + 10", "calculate"),
+            ("bây giờ là mấy giờ", "datetime"),
+            ("xin chào bạn", "greet"),
+            ("langgraph là gì", "rag"),
+        ]
+        for q, exp_intent in queries:
+            res = handle_query(session_id="test_quick", user_query=q)
+            self.assertEqual(res.get("intent"), exp_intent)
+            self.assertTrue(len(res.get("final_answer", "")) > 0)
+            self.assertIn("confidence_score", res)
 
+
+if __name__ == "__main__":
+    unittest.main()
