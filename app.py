@@ -1,14 +1,3 @@
-"""
-app.py — Máy chủ Web Flask v4.0 (Pure Python Multi-Agent Engine)
-
-Điểm nâng cấp nổi bật trong v4.0:
-  1. Sử dụng 100% Logic Python nội bộ & Multi-Agent LangGraph (No-API-Key).
-  2. Mở khóa và tích hợp triệt để xử lý Tệp đính kèm (PDF, DOCX, XLSX, TXT, Ảnh OCR).
-  3. Cơ sở dữ liệu SQLite (chatbot.db) thay thế hoàn toàn việc ghi file JSON.
-  4. Tích hợp trực tiếp Dashboard đồ họa SVG (agent_dashboard.html) vào route /process/<session_id>.
-  5. Hỗ trợ Server-Sent Events (SSE) streaming tại /api/chat/stream.
-"""
-
 import os
 import sys
 import time
@@ -16,8 +5,10 @@ import uuid
 import json
 from datetime import datetime
 from pathlib import Path
+from flask import Flask, request, jsonify, render_template, Response, stream_with_context
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
-# Cấu hình UTF-8 cho Windows Terminal tránh lỗi mã hóa ký tự tiếng Việt
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -25,16 +16,10 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from flask import Flask, request, jsonify, render_template, Response, stream_with_context
-from flask_cors import CORS
-from werkzeug.utils import secure_filename
-
-# Import Core Multi-Agent & Storage
 from core.graph import handle_query
 from storage.database import ChatDatabase
 from storage.file_reader import extract_text
 
-# ── Khởi tạo Flask App ────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATE_DIR = BASE_DIR / "templates"
@@ -48,26 +33,17 @@ app = Flask(
 )
 CORS(app)
 
-# Khởi tạo SQLite Database
 db = ChatDatabase(str(BASE_DIR / "chatbot.db"))
 
 
-# ── Hàm trợ giúp trích xuất tệp đính kèm ──────────────────────────────
+# Trích xuất và tổng hợp nội dung văn bản từ các tệp và thư mục đính kèm
 def _process_attachments(attachments: list[dict]) -> tuple[list[dict], str]:
-    """
-    Trích xuất văn bản từ các tệp và thư mục đính kèm được tải lên.
-    Hỗ trợ: Toàn bộ mã nguồn (mọi ngôn ngữ), Thư mục dự án, PDF, Word (.docx),
-    Excel (.xlsx), PowerPoint (.pptx), Ảnh (PNG, JPG...), File ZIP.
-    """
     contexts = []
     lines = []
-
     for att in attachments:
         filename = att.get("filename") or "unknown"
         content_type = att.get("type") or ""
         url = att.get("url") or ""
-
-        # Tìm file hoặc thư mục trên đĩa
         file_path = None
         if url.startswith("/static/uploads/"):
             safe_name = url.replace("/static/uploads/", "").strip()
@@ -75,10 +51,7 @@ def _process_attachments(attachments: list[dict]) -> tuple[list[dict], str]:
             if potential_path.exists():
                 file_path = potential_path
 
-        extracted = None
-        if file_path:
-            extracted = extract_text(file_path, content_type)
-
+        extracted = extract_text(file_path, content_type) if file_path else None
         note = extracted if extracted else "[Không thể trích xuất nội dung tự động]"
         contexts.append({
             "filename": filename,
@@ -96,19 +69,15 @@ def _process_attachments(attachments: list[dict]) -> tuple[list[dict], str]:
     return contexts, summary
 
 
-# ══════════════════════════════════════════════════════════════════
-#  ROUTES CHÍNH
-# ══════════════════════════════════════════════════════════════════
-
+# Trả về giao diện web chính của ứng dụng Chatbot
 @app.route("/", methods=["GET"])
 def index():
-    """Giao diện chính của Chatbot."""
     return render_template("index.html")
 
 
+# Nhận tải lên tệp tin đơn lẻ và lưu vào thư mục static uploads
 @app.route("/api/upload", methods=["POST"])
 def upload_file():
-    """Endpoint tải lên tệp đính kèm."""
     try:
         uploaded_file = request.files.get("file")
         if not uploaded_file or uploaded_file.filename == "":
@@ -130,12 +99,9 @@ def upload_file():
         return jsonify({"error": str(exc)}), 500
 
 
+# Nhận tải lên nguyên thư mục dự án và lưu giữ cấu trúc cây thư mục con
 @app.route("/api/upload-folder", methods=["POST"])
 def upload_folder():
-    """
-    Endpoint tải lên toàn bộ thư mục (kèm cấu trúc cây tệp tin con).
-    Nhận danh sách files và relative paths (webkitRelativePath).
-    """
     try:
         files = request.files.getlist("files")
         paths = request.form.getlist("paths")
@@ -144,27 +110,21 @@ def upload_folder():
         if not files:
             return jsonify({"error": "Không có tệp nào trong thư mục được chọn."}), 400
 
-        # Tạo thư mục lưu trữ riêng cho folder tải lên
         folder_token = f"folder_{uuid.uuid4().hex[:8]}_{secure_filename(folder_name) or 'dir'}"
         target_dir = UPLOAD_DIR / folder_token
         target_dir.mkdir(parents=True, exist_ok=True)
 
         total_size = 0
         saved_count = 0
-
         for idx, f in enumerate(files):
             if not f or f.filename == "":
                 continue
-
             rel_str = paths[idx] if idx < len(paths) else f.filename
-            # Chuẩn hóa đường dẫn tương đối an toàn, loại bỏ Directory Traversal
             safe_parts = [secure_filename(p) for p in Path(rel_str).parts if p and p != ".."]
             if not safe_parts:
                 continue
-
             save_file_path = target_dir.joinpath(*safe_parts)
             save_file_path.parent.mkdir(parents=True, exist_ok=True)
-
             f.save(save_file_path)
             total_size += save_file_path.stat().st_size
             saved_count += 1
@@ -180,11 +140,9 @@ def upload_folder():
         return jsonify({"error": str(exc)}), 500
 
 
+# Xử lý truy vấn chat đồng bộ qua pipeline Multi-Agent và lưu trữ lượt tương tác
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    """
-    Endpoint chat chính thức — Điều phối qua LangGraph Multi-Agent.
-    """
     try:
         data = request.get_json() or {}
         message = data.get("message", "").strip()
@@ -195,23 +153,14 @@ def chat():
         if not message and not attachments:
             return jsonify({"error": "Nội dung tin nhắn hoặc tệp đính kèm không được rỗng."}), 400
 
-        # Đảm bảo session tồn tại trong SQLite
         if db.load_session(session_id) is None:
             db.create_session(session_id, user_id=user_id)
 
-        # Trích xuất nội dung từ tệp đính kèm (nếu có)
         attachment_contexts, attachment_summary = _process_attachments(attachments)
         message_payload = message
         if attachment_summary:
-            if message_payload:
-                message_payload = f"{message_payload}\n\n{attachment_summary}"
-            else:
-                message_payload = attachment_summary
+            message_payload = f"{message_payload}\n\n{attachment_summary}" if message_payload else attachment_summary
 
-        # Lấy lịch sử hội thoại gần nhất
-        history_text = db.get_history_text(session_id, n=6)
-
-        # Chạy pipeline Multi-Agent qua LangGraph StateGraph
         start_ts = time.time()
         turn_id = int(start_ts * 1000)
 
@@ -225,12 +174,8 @@ def chat():
 
         final_answer = result.get("final_answer", "")
         intent = result.get("intent", "general")
-        agent_timings = result.get("agent_timings", [])
-        call_graph = result.get("call_graph", [])
-        log = result.get("log", [])
         confidence = result.get("confidence_score", 0.0)
 
-        # Lưu lượt hội thoại vào SQLite
         db.append_turn(session_id, {
             "turn_id": turn_id,
             "timestamp": datetime.now().isoformat(),
@@ -238,9 +183,9 @@ def chat():
             "final_answer": final_answer,
             "intent": intent,
             "confidence_score": confidence,
-            "agent_timings": agent_timings,
-            "call_graph": call_graph,
-            "log": log,
+            "agent_timings": result.get("agent_timings", []),
+            "call_graph": result.get("call_graph", []),
+            "log": result.get("log", []),
             "attachments": attachment_contexts,
         })
 
@@ -253,19 +198,13 @@ def chat():
             "confidence_score": confidence,
             "turn_id": turn_id,
         })
-
     except Exception as exc:
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": str(exc)}), 500
 
 
+# Xử lý phản hồi dạng luồng Server-Sent Events tạo hiệu ứng gõ phím mượt mà
 @app.route("/api/chat/stream", methods=["POST"])
 def chat_stream():
-    """
-    Endpoint phản hồi Streaming (Server-Sent Events - SSE).
-    Tạo hiệu ứng gõ chữ từng từ mượt mà cho người dùng.
-    """
     try:
         data = request.get_json() or {}
         message = data.get("message", "").strip()
@@ -276,11 +215,9 @@ def chat_stream():
         if not message and not attachments:
             return jsonify({"error": "Tin nhắn rỗng"}), 400
 
-        # Đảm bảo session tồn tại
         if db.load_session(session_id) is None:
             db.create_session(session_id, user_id=user_id)
 
-        # Xử lý tệp đính kèm
         attachment_contexts, attachment_summary = _process_attachments(attachments)
         message_payload = message
         if attachment_summary:
@@ -289,13 +226,11 @@ def chat_stream():
         start_ts = time.time()
         turn_id = int(start_ts * 1000)
 
-        # Chạy pipeline Multi-Agent
         result = handle_query(session_id=session_id, user_query=message_payload, turn_id=turn_id, user_id=user_id)
         final_answer = result.get("final_answer", "")
         intent = result.get("intent", "general")
         elapsed = round(time.time() - start_ts, 4)
 
-        # Lưu SQLite
         db.append_turn(session_id, {
             "turn_id": turn_id,
             "timestamp": datetime.now().isoformat(),
@@ -309,26 +244,24 @@ def chat_stream():
             "attachments": attachment_contexts,
         })
 
+        # Tạo luồng dữ liệu SSE truyền từng token từ phản hồi
         def event_stream():
-            # Tách nhỏ văn bản thành các chunk từ để tạo hiệu ứng typing
             words = final_answer.split(" ")
             for i, word in enumerate(words):
                 chunk = word + (" " if i < len(words) - 1 else "")
                 data_payload = json.dumps({"token": chunk, "intent": intent})
                 yield f"data: {data_payload}\n\n"
-                time.sleep(0.015)  # 15ms per token
-            # Gửi tín hiệu hoàn tất
+                time.sleep(0.015)
             yield f"data: {json.dumps({'done': True, 'elapsed': elapsed, 'intent': intent})}\n\n"
 
         return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
-
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
 
+# Kiểm tra trạng thái hoạt động và thông tin cấu hình của máy chủ
 @app.route("/api/health", methods=["GET"])
 def health():
-    """Kiểm tra tình trạng máy chủ."""
     return jsonify({
         "status": "ok",
         "engine": "LangGraph Multi-Agent v4.0",
@@ -338,18 +271,18 @@ def health():
     })
 
 
+# Trả về danh sách tất cả các phiên hội thoại hiện có trong cơ sở dữ liệu
 @app.route("/api/sessions", methods=["GET"])
 def sessions():
-    """Lấy danh sách các phiên hội thoại."""
     try:
         return jsonify({"sessions": db.list_sessions()})
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+# Khởi tạo một phiên trò chuyện mới với mã định danh ngẫu nhiên
 @app.route("/api/session/new", methods=["POST"])
 def new_session():
-    """Tạo một phiên hội thoại mới."""
     try:
         data = request.get_json() or {}
         session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -360,9 +293,9 @@ def new_session():
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+# Trả về chi tiết toàn bộ lịch sử các lượt tương tác của một phiên trò chuyện
 @app.route("/api/history/<session_id>", methods=["GET"])
 def history(session_id: str):
-    """Lấy toàn bộ lịch sử các turns của một phiên hội thoại."""
     try:
         sess = db.load_session(session_id)
         if not sess:
@@ -372,9 +305,9 @@ def history(session_id: str):
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+# Cung cấp dữ liệu hiệu năng chi tiết và chuỗi thực thi của các Agent theo phiên
 @app.route("/api/process/<session_id>", methods=["GET"])
 def process(session_id: str):
-    """Trả về dữ liệu giám sát Multi-Agent của một phiên."""
     try:
         turn_id = request.args.get("turn_id", type=int)
         report = db.get_process(session_id, turn_id)
@@ -385,32 +318,27 @@ def process(session_id: str):
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+# Hiển thị trang giao diện dashboard trực quan hóa đồ thị thực thi của các Agent
 @app.route("/process/<session_id>", methods=["GET"])
 def process_page(session_id: str):
-    """
-    Hiển thị Dashboard đồ họa SVG Call Graph tương tác của chính phiên chat đó.
-    """
     return render_template("agent_dashboard.html", session_id=session_id)
 
 
+# Lấy thông tin hồ sơ người dùng theo user_id
 @app.route("/api/users/<user_id>", methods=["GET"])
 def get_user(user_id: str):
-    """Lấy thông tin hồ sơ người dùng."""
     try:
         user_info = db.get_user_profile(user_id)
         if not user_info:
-            return jsonify({
-                "user_id": user_id,
-                "profile": {"name": "", "email": ""}
-            })
+            return jsonify({"user_id": user_id, "profile": {"name": "", "email": ""}})
         return jsonify(user_info)
     except Exception as exc:
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+# Lưu hoặc cập nhật thông tin hồ sơ người dùng
 @app.route("/api/users/<user_id>", methods=["POST"])
 def save_user(user_id: str):
-    """Lưu thông tin hồ sơ người dùng."""
     try:
         data = request.get_json() or {}
         saved = db.save_user_profile(user_id, data)
@@ -419,7 +347,6 @@ def save_user(user_id: str):
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
-# Chạy trực tiếp qua lệnh python app.py
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     print(f"\n{'='*65}")

@@ -1,55 +1,19 @@
-"""
-core/agents/rag.py — KnowledgeBaseAgent
-
-Local RAG Agent sử dụng thuật toán BM25Okapi tự cài đặt (pure Python).
-Không phụ thuộc thư viện `rank_bm25` hay bất kỳ engine tìm kiếm nào.
-
-Quy trình hoạt động:
-  1. Quét thư mục `data/docs/` để tải các file .txt, .md
-  2. Chia văn bản thành chunks (~300 từ, overlap 50 từ)
-  3. Xây dựng BM25 inverted index
-  4. Nhận query → tokenize → tính BM25 score → trả về top-k chunks
-
-Nếu `data/docs/` trống hoặc không tồn tại, agent sẽ sử dụng
-bộ kiến thức tĩnh (fallback) gồm 6 chủ đề công nghệ.
-"""
-
 import math
 import os
 import re
 import pickle
-import hashlib
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
-
 from .base import AgentBase
 
-
 class KnowledgeBaseAgent(AgentBase):
-    """
-    Agent tra cứu kiến thức nội bộ (RAG) sử dụng thuật toán BM25Okapi.
-
-    BM25 (Best Matching 25) là thuật toán xếp hạng dựa trên TF-IDF
-    có hiệu chỉnh cho độ dài tài liệu. Được cài đặt hoàn toàn bằng
-    Python thuần, không dùng thư viện ngoài.
-    """
-
     NAME = "KnowledgeBase"
-
-    # Tham số BM25Okapi chuẩn
-    _BM25_K1 = 1.5   # Điều chỉnh mức bão hòa tần suất từ (term frequency saturation)
-    _BM25_B = 0.75    # Điều chỉnh chuẩn hóa độ dài tài liệu (document length normalization)
-
-    # Cấu hình chunking
-    _CHUNK_SIZE = 300       # Số từ mỗi chunk
-    _CHUNK_OVERLAP = 50     # Số từ chồng lấp giữa 2 chunk liên tiếp
-
-    # Thư mục chứa tài liệu
+    _BM25_K1 = 1.5
+    _BM25_B = 0.75
+    _CHUNK_SIZE = 300
+    _CHUNK_OVERLAP = 50
     _DOCS_DIR = os.path.join("data", "docs")
+    _CACHE_FILE = Path("data/.kb_index_cache.pkl")
 
-    # ------------------------------------------------------------------ #
-    #  Kiến thức tĩnh fallback (khi data/docs/ trống)
-    # ------------------------------------------------------------------ #
     _FALLBACK_KB: dict[str, str] = {
         "langgraph": (
             "LangGraph là framework mã nguồn mở của LangChain để xây dựng ứng dụng "
@@ -108,43 +72,28 @@ class KnowledgeBaseAgent(AgentBase):
         ),
     }
 
-    _CACHE_FILE = Path("data/.kb_index_cache.pkl")
-
+    # Khởi tạo tác tử RAG nội bộ và nạp chỉ mục từ bộ nhớ đệm hoặc quét tài liệu.
     def __init__(self, called_by: str = "System"):
-        """
-        Khởi tạo agent và nạp tài liệu từ data/docs/.
-        Tận dụng Persistent BM25 Cache để tăng tốc độ nạp < 5ms.
-        Nếu thư mục trống hoặc không tồn tại, sử dụng fallback KB.
-        """
         super().__init__(called_by)
-
-        # Danh sách chunk: mỗi phần tử là dict {"text": str, "source": str}
         self._chunks: list[dict[str, str]] = []
-
-        # BM25 index structures
-        self._doc_freqs: dict[str, int] = {}    # Document frequency: từ -> số doc chứa từ đó
-        self._doc_lengths: list[int] = []        # Độ dài (số token) mỗi chunk
-        self._avg_doc_len: float = 0.0           # Trung bình độ dài doc
-        self._inverted_index: dict[str, list[tuple[int, int]]] = {}  # từ -> [(doc_idx, freq)]
-        self._corpus_size: int = 0               # Tổng số chunk
-        self._using_fallback: bool = False        # Đang dùng fallback KB?
-        self._from_cache: bool = False           # Chỉ mục nạp từ Persistent Cache?
-
-        # 1. Kiểm tra chữ ký tệp hiện tại trong data/docs/
+        self._doc_freqs: dict[str, int] = {}
+        self._doc_lengths: list[int] = []
+        self._avg_doc_len: float = 0.0
+        self._inverted_index: dict[str, list[tuple[int, int]]] = {}
+        self._corpus_size: int = 0
+        self._using_fallback: bool = False
+        self._from_cache: bool = False
         current_sig = self._compute_files_signature()
-
-        # 2. Thử nạp từ persistent cache
         if self._try_load_cache(current_sig):
             self._from_cache = True
         else:
-            # 3. Quét và xây dựng chỉ mục mới nếu cache miss hoặc có sửa đổi
             self._load_documents()
             if self._chunks:
                 self._build_index()
                 self._save_cache(current_sig)
 
+    # Tính toán chữ ký kích thước và thời gian sửa đổi của các tài liệu trong thư mục nguồn.
     def _compute_files_signature(self) -> dict[str, str]:
-        """Tính toán chữ ký trạng thái (size + mtime) của toàn bộ tệp trong data/docs/."""
         docs_path = Path(self._DOCS_DIR)
         sig = {}
         if not docs_path.exists():
@@ -153,21 +102,19 @@ class KnowledgeBaseAgent(AgentBase):
             if p.is_file() and not p.name.startswith("."):
                 try:
                     st = p.stat()
-                    rel_key = p.relative_to(docs_path).as_posix()
-                    sig[rel_key] = f"{st.st_size}_{st.st_mtime_ns}"
+                    sig[p.relative_to(docs_path).as_posix()] = f"{st.st_size}_{st.st_mtime_ns}"
                 except OSError:
                     pass
         return sig
 
+    # Nạp cấu trúc chỉ mục BM25 từ tệp đệm nhị phân nếu chữ ký tệp không thay đổi.
     def _try_load_cache(self, current_sig: dict[str, str]) -> bool:
-        """Thử nạp chỉ mục BM25 từ tệp đệm nhị phân nếu tệp không có thay đổi."""
         if not self._CACHE_FILE.exists() or not current_sig:
             return False
         try:
             with open(self._CACHE_FILE, "rb") as f:
                 data = pickle.load(f)
-            cached_sig = data.get("signature")
-            if cached_sig == current_sig:
+            if data.get("signature") == current_sig:
                 self._chunks = data.get("chunks", [])
                 self._doc_freqs = data.get("doc_freqs", {})
                 self._doc_lengths = data.get("doc_lengths", [])
@@ -180,8 +127,8 @@ class KnowledgeBaseAgent(AgentBase):
             pass
         return False
 
+    # Lưu trữ chỉ mục BM25 vào tệp đệm nhị phân để tối ưu tốc độ khởi động cho các lần sau.
     def _save_cache(self, current_sig: dict[str, str]) -> None:
-        """Lưu trạng thái BM25 vào persistent cache."""
         if not current_sig or self._using_fallback:
             return
         try:
@@ -201,8 +148,8 @@ class KnowledgeBaseAgent(AgentBase):
         except Exception as exc:
             print(f"[KnowledgeBase] Lỗi khi ghi cache BM25: {exc}")
 
+    # Xây dựng lại toàn bộ chỉ mục tìm kiếm khi có cập nhật tệp tài liệu mới.
     def rebuild_index(self, force: bool = False) -> None:
-        """Tái xây dựng toàn bộ chỉ mục (dùng khi vừa nạp thêm tệp mới)."""
         current_sig = self._compute_files_signature()
         self._chunks = []
         self._load_documents()
@@ -210,40 +157,13 @@ class KnowledgeBaseAgent(AgentBase):
             self._build_index()
             self._save_cache(current_sig)
 
-    # ================================================================== #
-    #  TOKENIZATION
-    # ================================================================== #
-
+    # Tách từ tiếng Việt và lọc các từ quá ngắn khỏi chuỗi văn bản.
     def _tokenize(self, text: str) -> list[str]:
-        """
-        Tokenize văn bản tiếng Việt: tách theo khoảng trắng và dấu câu,
-        chuyển thường, loại bỏ token quá ngắn.
+        tokens = re.findall(r'[\w]+', text.lower(), re.UNICODE)
+        return [t for t in tokens if len(t) > 1 or t in ('à', 'ở', 'ý')]
 
-        Args:
-            text: Chuỗi văn bản cần tokenize.
-
-        Returns:
-            Danh sách token đã chuẩn hóa.
-        """
-        # Chuyển thường
-        text = text.lower()
-        # Tách theo khoảng trắng và dấu câu (giữ lại chữ cái, số, dấu tiếng Việt)
-        tokens = re.findall(r'[\w]+', text, re.UNICODE)
-        # Lọc token quá ngắn (1 ký tự) trừ các từ tiếng Việt quan trọng
-        tokens = [t for t in tokens if len(t) > 1 or t in ('à', 'ở', 'ý')]
-        return tokens
-
-    # ================================================================== #
-    #  DOCUMENT LOADING & CHUNKING
-    # ================================================================== #
-
+    # Quét và đọc nội dung văn bản từ thư mục tài liệu hoặc nạp kho dự phòng.
     def _load_documents(self) -> None:
-        """
-        Quét đệ quy toàn bộ thư mục data/docs/ và mọi thư mục con bên trong.
-        Hỗ trợ MỌI định dạng: Mã nguồn (mọi ngôn ngữ), PDF, Word (.docx),
-        Excel (.xlsx), PowerPoint (.pptx), Ảnh, Văn bản (.txt, .md, .json, .yaml...).
-        Nếu không tìm thấy tài liệu, chuyển sang fallback KB.
-        """
         try:
             from storage.file_reader import scan_documents
             doc_items = scan_documents(self._DOCS_DIR)
@@ -251,224 +171,85 @@ class KnowledgeBaseAgent(AgentBase):
                 content = item.get("text", "")
                 rel_path = item.get("rel_path", item.get("filename", "unknown"))
                 if content and content.strip():
-                    chunks = self._split_into_chunks(content)
-                    for chunk_text in chunks:
-                        self._chunks.append({
-                            "text": chunk_text,
-                            "source": rel_path,
-                        })
+                    for chunk_text in self._split_into_chunks(content):
+                        self._chunks.append({"text": chunk_text, "source": rel_path})
         except Exception as exc:
             print(f"[KnowledgeBase] Lỗi khi nạp tài liệu từ {self._DOCS_DIR}: {exc}")
-
-        # Nếu không có chunk nào từ file, dùng fallback
         if not self._chunks:
             self._using_fallback = True
             for topic, content in self._FALLBACK_KB.items():
-                self._chunks.append({
-                    "text": content,
-                    "source": f"fallback:{topic}",
-                })
+                self._chunks.append({"text": content, "source": f"fallback:{topic}"})
 
+    # Phân mảnh tài liệu dài thành các đoạn nhỏ có phần chồng lấp ngữ cảnh.
     def _split_into_chunks(self, text: str) -> list[str]:
-        """
-        Chia văn bản thành các chunk có kích thước ~CHUNK_SIZE từ,
-        với CHUNK_OVERLAP từ chồng lấp giữa các chunk liên tiếp.
-
-        Args:
-            text: Văn bản cần chia.
-
-        Returns:
-            Danh sách các chunk dạng chuỗi.
-        """
         words = text.split()
         if len(words) <= self._CHUNK_SIZE:
             return [text]
-
-        chunks: list[str] = []
-        start = 0
+        chunks, start = [], 0
         while start < len(words):
-            end = start + self._CHUNK_SIZE
-            chunk_words = words[start:end]
-            chunks.append(" ".join(chunk_words))
-
-            # Di chuyển vị trí bắt đầu: chunk_size - overlap
+            chunks.append(" ".join(words[start:start + self._CHUNK_SIZE]))
             start += self._CHUNK_SIZE - self._CHUNK_OVERLAP
-
         return chunks
 
-    # ================================================================== #
-    #  BM25 INDEX BUILDING
-    # ================================================================== #
-
+    # Xây dựng chỉ mục ngược và tính toán tần suất từ phục vụ thuật toán BM25.
     def _build_index(self) -> None:
-        """
-        Xây dựng BM25 inverted index từ danh sách chunk đã nạp.
-
-        Tính toán:
-          - Document frequency (df): số chunk chứa mỗi từ
-          - Term frequency (tf): tần suất từ trong mỗi chunk
-          - Inverted index: từ -> [(chunk_idx, tf)]
-          - Thống kê corpus: avg_doc_len, corpus_size
-        """
         self._corpus_size = len(self._chunks)
-        self._doc_lengths = []
-        self._doc_freqs = {}
-        self._inverted_index = {}
-
+        self._doc_lengths, self._doc_freqs, self._inverted_index = [], {}, {}
         for doc_idx, chunk in enumerate(self._chunks):
             tokens = self._tokenize(chunk["text"])
             self._doc_lengths.append(len(tokens))
-
-            # Đếm tần suất từ trong chunk này
             tf_map: dict[str, int] = {}
             for token in tokens:
                 tf_map[token] = tf_map.get(token, 0) + 1
-
-            # Cập nhật document frequency và inverted index
             for token, freq in tf_map.items():
-                # Document frequency: đếm số doc chứa token
                 self._doc_freqs[token] = self._doc_freqs.get(token, 0) + 1
-
-                # Inverted index: lưu (doc_idx, term_frequency)
                 if token not in self._inverted_index:
                     self._inverted_index[token] = []
                 self._inverted_index[token].append((doc_idx, freq))
+        self._avg_doc_len = sum(self._doc_lengths) / len(self._doc_lengths) if self._doc_lengths else 1.0
 
-        # Tính trung bình độ dài document
-        if self._doc_lengths:
-            self._avg_doc_len = sum(self._doc_lengths) / len(self._doc_lengths)
-        else:
-            self._avg_doc_len = 1.0
-
-    # ================================================================== #
-    #  BM25 SCORING
-    # ================================================================== #
-
+    # Chấm điểm mức độ liên quan của các đoạn tài liệu theo công thức BM25Okapi.
     def _score(self, query_tokens: list[str]) -> list[tuple[int, float]]:
-        """
-        Tính điểm BM25Okapi cho tất cả chunk dựa trên query tokens.
-
-        Công thức BM25Okapi:
-          score(D, Q) = Σ IDF(qi) · (tf(qi, D) · (k1 + 1)) /
-                         (tf(qi, D) + k1 · (1 - b + b · |D| / avgdl))
-
-          IDF(qi) = ln((N - df(qi) + 0.5) / (df(qi) + 0.5) + 1)
-
-        Args:
-            query_tokens: Danh sách token từ câu truy vấn.
-
-        Returns:
-            Danh sách (chunk_index, score) đã sắp xếp giảm dần theo score.
-        """
-        # Khởi tạo mảng điểm cho mỗi chunk
         scores = [0.0] * self._corpus_size
         N = self._corpus_size
-
         for q_token in query_tokens:
             if q_token not in self._inverted_index:
                 continue
-
-            # Tính IDF cho token này
             df = self._doc_freqs.get(q_token, 0)
             idf = math.log((N - df + 0.5) / (df + 0.5) + 1.0)
-
-            # Duyệt qua các chunk chứa token này
             for doc_idx, tf in self._inverted_index[q_token]:
                 doc_len = self._doc_lengths[doc_idx]
-                # Công thức BM25 chuẩn
-                numerator = tf * (self._BM25_K1 + 1)
-                denominator = tf + self._BM25_K1 * (
-                    1 - self._BM25_B + self._BM25_B * doc_len / self._avg_doc_len
-                )
-                scores[doc_idx] += idf * (numerator / denominator)
-
-        # Sắp xếp theo điểm giảm dần, chỉ giữ chunk có điểm > 0
-        scored_docs = [
-            (idx, score) for idx, score in enumerate(scores) if score > 0
-        ]
+                num = tf * (self._BM25_K1 + 1)
+                den = tf + self._BM25_K1 * (1 - self._BM25_B + self._BM25_B * doc_len / self._avg_doc_len)
+                scores[doc_idx] += idf * (num / den)
+        scored_docs = [(idx, s) for idx, s in enumerate(scores) if s > 0]
         scored_docs.sort(key=lambda x: x[1], reverse=True)
-
         return scored_docs
 
-    # ================================================================== #
-    #  PUBLIC API
-    # ================================================================== #
-
-    def run(self, *, query: str = "", intent: str = "", **kwargs) -> dict:
-        """
-        Tra cứu kiến thức từ Knowledge Base dựa trên câu truy vấn.
-
-        Args:
-            query:  Câu hỏi của người dùng.
-            intent: Ý định đã phân loại (tùy chọn, dùng để lọc kết quả).
-
-        Returns:
-            dict: {
-                "kb_context": str  — Nội dung ngữ cảnh từ KB (top chunks nối lại),
-                "sources":    list — Danh sách nguồn tài liệu,
-                "message":    str  — Thông báo trạng thái,
-            }
-        """
+    # Tra cứu các đoạn tri thức liên quan nhất từ kho tài liệu theo câu truy vấn.
+    def run(self, query: str = "", intent: str = "", **kwargs) -> dict:
         if not query or not query.strip():
-            return {
-                "kb_context": "",
-                "sources": [],
-                "message": self._log("Không có câu truy vấn."),
-            }
-
+            return {"kb_context": "", "sources": [], "message": self._log("Không có câu truy vấn.")}
         if not self._chunks:
-            return {
-                "kb_context": "",
-                "sources": [],
-                "message": self._log(
-                    "Knowledge Base trống. Hãy thêm file .txt hoặc .md vào thư mục data/docs/"
-                ),
-            }
-
-        # Tokenize query
+            return {"kb_context": "", "sources": [], "message": self._log("Knowledge Base trống. Hãy thêm file .txt hoặc .md vào thư mục data/docs/")}
         query_tokens = self._tokenize(query)
         if not query_tokens:
-            return {
-                "kb_context": "",
-                "sources": [],
-                "message": self._log("Không thể trích xuất từ khóa từ câu truy vấn."),
-            }
-
-        # Tính điểm BM25 và lấy top 3 kết quả
+            return {"kb_context": "", "sources": [], "message": self._log("Không thể trích xuất từ khóa từ câu truy vấn.")}
         scored_results = self._score(query_tokens)
-        top_k = 3
-        top_results = scored_results[:top_k]
-
+        top_results = scored_results[:3]
         if not top_results:
-            return {
-                "kb_context": "",
-                "sources": [],
-                "message": self._log("Không tìm thấy tài liệu liên quan trong Knowledge Base."),
-            }
-
-        # Tổng hợp kết quả
-        context_parts: list[str] = []
-        sources: list[str] = []
-
-        for rank, (doc_idx, score) in enumerate(top_results, 1):
+            return {"kb_context": "", "sources": [], "message": self._log("Không tìm thấy tài liệu liên quan trong Knowledge Base.")}
+        context_parts, sources = [], []
+        for rank, (doc_idx, _) in enumerate(top_results, 1):
             chunk = self._chunks[doc_idx]
             context_parts.append(f"[{rank}] {chunk['text']}")
-            source = chunk["source"]
-            if source not in sources:
-                sources.append(source)
-
-        kb_context = "\n\n".join(context_parts)
+            src = chunk["source"]
+            if src not in sources:
+                sources.append(src)
         top_score = top_results[0][1] if top_results else 0
-
-        # Xây dựng thông báo
         fb_note = " (fallback KB)" if self._using_fallback else ""
-        message = self._log(
-            f"Tìm thấy {len(top_results)} kết quả{fb_note} — "
-            f"BM25 score cao nhất: {top_score:.4f}"
-        )
-
         return {
-            "kb_context": kb_context,
+            "kb_context": "\n\n".join(context_parts),
             "sources": sources,
-            "message": message,
+            "message": self._log(f"Tìm thấy {len(top_results)} kết quả{fb_note} — BM25 score cao nhất: {top_score:.4f}"),
         }

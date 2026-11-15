@@ -1,16 +1,6 @@
-"""
-core/agents/search.py — WebSearchAgent
-Tìm kiếm miễn phí qua DuckDuckGo HTTP + Fallback tri thức offline.
-
-Hoạt động 100% KHÔNG CẦN API KEY.
-- Primary: DuckDuckGo HTML Search (POST request, timeout 3s)
-- Fallback: Từ điển tri thức công nghệ offline (~25 khái niệm)
-"""
-
 import re
 from .base import AgentBase
 
-# ── Fallback: Từ điển tri thức công nghệ offline ─────────────────────
 _OFFLINE_KNOWLEDGE = {
     "python": "Python là ngôn ngữ lập trình bậc cao, đa mục đích, cú pháp rõ ràng. Được tạo bởi Guido van Rossum (1991). Phổ biến trong AI, Data Science, Web.",
     "javascript": "JavaScript là ngôn ngữ lập trình phía client (trình duyệt) và server (Node.js). Cốt lõi của web hiện đại.",
@@ -39,132 +29,72 @@ _OFFLINE_KNOWLEDGE = {
     "kubernetes": "Kubernetes (K8s) là hệ thống điều phối container mã nguồn mở. Tự động hóa triển khai, scaling, quản lý ứng dụng container.",
 }
 
-
 class WebSearchAgent(AgentBase):
-    """
-    Tác tử tìm kiếm — DuckDuckGo miễn phí + Fallback offline.
-    Không cần API Key, token hay tài khoản.
-    """
-
     NAME = "WebSearch"
 
+    # Khởi tạo tác tử tìm kiếm thông tin web và tra cứu ngoại tuyến.
     def __init__(self, called_by: str = "Router"):
         super().__init__(called_by=called_by)
 
+    # Thực thi tìm kiếm thông tin trực tuyến qua DuckDuckGo hoặc chuyển sang kho tri thức ngoại tuyến.
     def run(self, query: str = "", **kwargs) -> dict:
-        """
-        Tìm kiếm thông tin. Ưu tiên DuckDuckGo, fallback offline.
-
-        Returns:
-            {"web_results": str, "sources": list, "message": str}
-        """
         query = query.strip()
         if not query:
             return {"web_results": "", "sources": [], "message": "Không có từ khóa tìm kiếm."}
+        online = self._search_duckduckgo(query)
+        return online if online else self._search_offline(query)
 
-        # Thử tìm kiếm online trước
-        online_result = self._search_duckduckgo(query)
-        if online_result:
-            return online_result
-
-        # Fallback: Tra cứu offline
-        return self._search_offline(query)
-
+    # Truy vấn kết quả tìm kiếm từ DuckDuckGo qua giao thức HTTP không cần API key.
     def _search_duckduckgo(self, query: str) -> dict | None:
-        """Tìm kiếm qua DuckDuckGo HTML (không cần API key)."""
         try:
             import requests
-        except ImportError:
-            return None
-
-        try:
-            url = "https://html.duckduckgo.com/html/"
             resp = requests.post(
-                url,
+                "https://html.duckduckgo.com/html/",
                 data={"q": query},
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                },
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
                 timeout=3,
             )
             if resp.status_code != 200:
                 return None
-
-            html = resp.text
-            results = self._parse_ddg_html(html)
+            results = self._parse_ddg_html(resp.text)
             if not results:
                 return None
-
-            # Định dạng kết quả
-            lines = []
-            sources = []
-            for i, r in enumerate(results[:5], 1):
-                lines.append(f"{i}. **{r['title']}**\n   {r['snippet']}")
-                if r.get("url"):
-                    sources.append(r["url"])
-
-            web_text = "\n\n".join(lines)
-            return {
-                "web_results": web_text,
-                "sources": sources,
-                "message": f"Tìm thấy {len(results)} kết quả từ DuckDuckGo.",
-            }
+            lines = [f"{i}. **{r['title']}**\n   {r['snippet']}" for i, r in enumerate(results[:5], 1)]
+            sources = [r["url"] for r in results[:5] if r.get("url")]
+            return {"web_results": "\n\n".join(lines), "sources": sources, "message": f"Tìm thấy {len(results)} kết quả từ DuckDuckGo."}
         except Exception:
             return None
 
+    # Phân tích cú pháp HTML của trang kết quả tìm kiếm để trích xuất tiêu đề và đoạn trích.
     @staticmethod
     def _parse_ddg_html(html: str) -> list[dict]:
-        """Phân tích HTML của DuckDuckGo để trích xuất kết quả."""
         results = []
-
-        # Tìm các khối kết quả
-        result_blocks = re.findall(
-            r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?'
-            r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
-            html, re.DOTALL
-        )
-
-        for title_raw, snippet_raw in result_blocks[:5]:
-            # Xóa HTML tags
-            title = re.sub(r'<[^>]+>', '', title_raw).strip()
-            snippet = re.sub(r'<[^>]+>', '', snippet_raw).strip()
-            if title and snippet:
-                results.append({"title": title, "snippet": snippet, "url": ""})
-
-        # Phương pháp 2: Tìm riêng lẻ nếu phương pháp 1 không ra kết quả
+        blocks = re.findall(r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?<a[^>]*class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+        for t_raw, s_raw in blocks[:5]:
+            t = re.sub(r'<[^>]+>', '', t_raw).strip()
+            s = re.sub(r'<[^>]+>', '', s_raw).strip()
+            if t and s:
+                results.append({"title": t, "snippet": s, "url": ""})
         if not results:
             titles = re.findall(r'class="result__a"[^>]*>(.*?)</a>', html, re.DOTALL)
             snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
             for t, s in zip(titles[:5], snippets[:5]):
-                title = re.sub(r'<[^>]+>', '', t).strip()
-                snippet = re.sub(r'<[^>]+>', '', s).strip()
-                if title:
-                    results.append({"title": title, "snippet": snippet, "url": ""})
-
+                t_clean = re.sub(r'<[^>]+>', '', t).strip()
+                s_clean = re.sub(r'<[^>]+>', '', s).strip()
+                if t_clean:
+                    results.append({"title": t_clean, "snippet": s_clean, "url": ""})
         return results
 
+    # Tra cứu định nghĩa từ điển kỹ thuật cục bộ khi máy chủ không có kết nối mạng.
     def _search_offline(self, query: str) -> dict:
-        """Tra cứu từ điển tri thức offline khi không có mạng."""
         q_lower = query.lower()
-        matches = []
-
-        for key, info in _OFFLINE_KNOWLEDGE.items():
-            if key in q_lower or any(word in q_lower for word in key.split()):
-                matches.append({"term": key, "info": info})
-
+        matches = [m for k, m in _OFFLINE_KNOWLEDGE.items() if k in q_lower or any(w in q_lower for w in k.split())]
         if matches:
-            lines = []
-            for m in matches[:3]:
-                lines.append(f"📚 **{m['term'].title()}**: {m['info']}")
+            matched_items = [{"term": k, "info": v} for k, v in _OFFLINE_KNOWLEDGE.items() if k in q_lower or any(w in q_lower for w in k.split())]
+            lines = [f"📚 **{m['term'].title()}**: {m['info']}" for m in matched_items[:3]]
             return {
                 "web_results": "\n\n".join(lines),
-                "sources": [f"[Offline KB] {m['term']}" for m in matches[:3]],
-                "message": f"Tra cứu offline: tìm thấy {len(matches)} kết quả.",
+                "sources": [f"[Offline KB] {m['term']}" for m in matched_items[:3]],
+                "message": f"Tra cứu offline: tìm thấy {len(matched_items)} kết quả.",
             }
-
-        return {
-            "web_results": "",
-            "sources": [],
-            "message": "Không tìm thấy kết quả (offline + online đều không khả dụng).",
-        }
-
+        return {"web_results": "", "sources": [], "message": "Không tìm thấy kết quả (offline + online đều không khả dụng)."}

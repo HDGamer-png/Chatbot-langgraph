@@ -1,29 +1,10 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════════════╗
-║   LANGGRAPH MULTI-AGENT CHATBOT v4.0                                ║
-║   Pure Python Local Architecture — No API Key Required               ║
-║                                                                      ║
-║   Tác giả: Hoàng Minh Đức — Thực tập sinh AI Agent 2026            ║
-║                                                                      ║
-║   Architecture:                                                      ║
-║   • PHA 1 (Song song): 6 Worker Agents (RAG, Math, Search, DateTime, ║
-║                        Analyst, Intent) qua ThreadPool              ║
-║   • PHA 2 (Tuần tự):   Planner → Validator → ResponseGenerator      ║
-║   • Storage: SQLite (chatbot.db)                                     ║
-║   • Frontend: Web UI Dark Theme + SVG Call Graph Dashboard           ║
-║   • Data Layer: Hiểu mọi định dạng (mã nguồn mọi ngôn ngữ,          ║
-║                 PDF, Word, Excel, PPTX, Ảnh, ZIP, Thư mục).          ║
-╚══════════════════════════════════════════════════════════════════════╝
-"""
-
 import os
 import sys
 import argparse
 from datetime import datetime
 from pathlib import Path
 
-# Cấu hình UTF-8 cho Windows Terminal tránh lỗi mã hóa ký tự tiếng Việt
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -31,7 +12,6 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# Thêm thư mục hiện tại vào sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from core.graph import handle_query
@@ -39,8 +19,8 @@ from storage.database import ChatDatabase
 from storage.file_reader import extract_text
 
 
+# Chạy vòng lặp tương tác giao diện dòng lệnh cho phép đính kèm tệp và chat với hệ thống Agent
 def cli_interactive(initial_attach: str = None):
-    """Chế độ trò chuyện tương tác trong Terminal với khả năng nạp file & folder."""
     db = ChatDatabase("chatbot.db")
     session_id = f"cli_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     db.create_session(session_id, user_id="cli_user")
@@ -81,7 +61,6 @@ def cli_interactive(initial_attach: str = None):
             if not user_input:
                 continue
 
-            # Xử lý các lệnh đặc biệt
             cmd_lower = user_input.lower()
             if cmd_lower in ("quit", "exit", "thoat"):
                 print("\n👋 Tạm biệt! Hẹn gặp lại bạn.")
@@ -129,7 +108,6 @@ def cli_interactive(initial_attach: str = None):
                 print("  • quit / exit    : Thoát ứng dụng.")
                 continue
 
-            # Chuẩn bị payload câu hỏi kèm nội dung file/thư mục
             message_payload = user_input
             if current_attachment_text:
                 message_payload = f"{user_input}\n\nDưới đây là nội dung đính kèm [{current_attachment_name}]:\n{current_attachment_text}"
@@ -150,7 +128,6 @@ def cli_interactive(initial_attach: str = None):
             print(f"\n🎯 [Ý định: {intent.upper()} | Độ tin cậy: {confidence*100:.0f}%]")
             print(f"🤖 Bot:\n{final_answer}")
 
-            # Lưu vào SQLite
             db.append_turn(session_id, {
                 "turn_id": turn_counter,
                 "timestamp": datetime.now().isoformat(),
@@ -172,6 +149,7 @@ def cli_interactive(initial_attach: str = None):
             print(f"\n❌ Lỗi: {exc}")
 
 
+# Điểm vào chính phân tích tham số dòng lệnh để khởi chạy giao diện Web hoặc CLI
 def main():
     parser = argparse.ArgumentParser(description="LangGraph Multi-Agent Chatbot v4.0")
     parser.add_argument("--web", action="store_true", help="Khởi động Web server Flask")
