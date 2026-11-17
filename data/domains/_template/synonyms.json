@@ -1,0 +1,10 @@
+{
+  "hướng dẫn": ["tutorial", "tài liệu", "chỉ dẫn"],
+  "lập trình": ["mã nguồn", "coding", "code"],
+  "thực tập": ["thực tập sinh", "internship", "intern"],
+  "tính toán": ["đo lường", "giải toán", "calculator"],
+  "thời gian": ["ngày giờ", "lịch trình", "datetime"],
+  "tìm kiếm": ["tra cứu", "search", "truy vấn"],
+  "kế hoạch": ["lộ trình", "roadmap", "timeline", "planning"],
+  "phân tích": ["đánh giá", "kiểm toán", "analyze"]
+}

@@ -1,9 +1,13 @@
 import math
 import os
 import re
+import json
 import pickle
 from pathlib import Path
 from .base import AgentBase
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 
 class KnowledgeBaseAgent(AgentBase):
     NAME = "KnowledgeBase"
@@ -11,8 +15,9 @@ class KnowledgeBaseAgent(AgentBase):
     _BM25_B = 0.75
     _CHUNK_SIZE = 300
     _CHUNK_OVERLAP = 50
-    _DOCS_DIR = os.path.join("data", "docs")
-    _CACHE_FILE = Path("data/.kb_index_cache.pkl")
+    _DOCS_DIR = BASE_DIR / "data" / "docs"
+    _CACHE_FILE = BASE_DIR / "data" / ".kb_index_cache.pkl"
+    _ACTIVE_DOMAIN_FILE = BASE_DIR / "data" / ".active_domain"
 
     _FALLBACK_KB: dict[str, str] = {
         "langgraph": (
@@ -73,8 +78,10 @@ class KnowledgeBaseAgent(AgentBase):
     }
 
     # Khởi tạo tác tử RAG nội bộ và nạp chỉ mục từ bộ nhớ đệm hoặc quét tài liệu.
-    def __init__(self, called_by: str = "System"):
+    def __init__(self, called_by: str = "System", domain: str | None = None, cache_file: Path | str | None = None):
         super().__init__(called_by)
+        self._domain = domain
+        self._custom_cache_file = Path(cache_file) if cache_file else None
         self._chunks: list[dict[str, str]] = []
         self._doc_freqs: dict[str, int] = {}
         self._doc_lengths: list[int] = []
@@ -83,6 +90,7 @@ class KnowledgeBaseAgent(AgentBase):
         self._corpus_size: int = 0
         self._using_fallback: bool = False
         self._from_cache: bool = False
+        self._synonyms: dict[str, list[str]] = self._load_synonyms()
         current_sig = self._compute_files_signature()
         if self._try_load_cache(current_sig):
             self._from_cache = True
@@ -92,27 +100,92 @@ class KnowledgeBaseAgent(AgentBase):
                 self._build_index()
                 self._save_cache(current_sig)
 
+    # Xác định lĩnh vực chuyên ngành đang được kích hoạt từ tham số hoặc tệp cấu hình trạng thái.
+    def _get_active_domain(self) -> str | None:
+        if self._domain is not None:
+            return self._domain if self._domain not in ("default", "base") else None
+        if self._ACTIVE_DOMAIN_FILE.exists():
+            try:
+                name = self._ACTIVE_DOMAIN_FILE.read_text(encoding="utf-8").strip()
+                if name and name not in ("default", "base"):
+                    return name
+            except Exception:
+                pass
+        return None
+
+    # Nạp từ điển từ đồng nghĩa phục vụ mở rộng truy vấn BM25 từ domain hoặc thư mục gốc.
+    def _load_synonyms(self) -> dict[str, list[str]]:
+        domain = self._get_active_domain()
+        candidate_paths = []
+        if domain:
+            candidate_paths.append(BASE_DIR / "data" / "domains" / domain / "synonyms.json")
+        candidate_paths.extend([
+            BASE_DIR / "data" / "synonyms.json",
+            BASE_DIR / "data" / "domains" / "_template" / "synonyms.json",
+        ])
+        for p in candidate_paths:
+            if p.exists():
+                try:
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    if isinstance(data, dict):
+                        clean_syns = {}
+                        for k, v in data.items():
+                            if isinstance(k, str) and k.strip():
+                                clean_k = k.strip().lower()
+                                if isinstance(v, list):
+                                    clean_v = [str(x).strip().lower() for x in v if str(x).strip()]
+                                elif isinstance(v, str) and v.strip():
+                                    clean_v = [v.strip().lower()]
+                                else:
+                                    clean_v = []
+                                if clean_v:
+                                    clean_syns[clean_k] = clean_v
+                        return clean_syns
+                except Exception:
+                    pass
+        return {}
+
+    # Xác định đường dẫn tệp đệm nhị phân tương ứng với lĩnh vực hiện hành.
+    def _get_cache_file(self) -> Path:
+        if self._custom_cache_file is not None:
+            return self._custom_cache_file
+        domain = self._get_active_domain()
+        if domain:
+            return BASE_DIR / "data" / f".kb_index_cache_{domain}.pkl"
+        return self._CACHE_FILE
+
     # Tính toán chữ ký kích thước và thời gian sửa đổi của các tài liệu trong thư mục nguồn.
     def _compute_files_signature(self) -> dict[str, str]:
-        docs_path = Path(self._DOCS_DIR)
         sig = {}
-        if not docs_path.exists():
-            return sig
-        for p in sorted(docs_path.rglob("*")):
-            if p.is_file() and not p.name.startswith("."):
-                try:
-                    st = p.stat()
-                    sig[p.relative_to(docs_path).as_posix()] = f"{st.st_size}_{st.st_mtime_ns}"
-                except OSError:
-                    pass
+        if self._DOCS_DIR.exists():
+            for p in sorted(self._DOCS_DIR.rglob("*")):
+                if p.is_file() and not p.name.startswith("."):
+                    try:
+                        st = p.stat()
+                        sig[p.relative_to(self._DOCS_DIR).as_posix()] = f"{st.st_size}_{st.st_mtime_ns}"
+                    except OSError:
+                        pass
+        domain = self._get_active_domain()
+        if domain:
+            domain_docs = BASE_DIR / "data" / "domains" / domain / "kb_docs"
+            if domain_docs.exists():
+                for p in sorted(domain_docs.rglob("*")):
+                    if p.is_file() and not p.name.startswith("."):
+                        try:
+                            st = p.stat()
+                            sig[f"domain:{p.relative_to(domain_docs).as_posix()}"] = f"{st.st_size}_{st.st_mtime_ns}"
+                        except OSError:
+                            pass
         return sig
 
     # Nạp cấu trúc chỉ mục BM25 từ tệp đệm nhị phân nếu chữ ký tệp không thay đổi.
     def _try_load_cache(self, current_sig: dict[str, str]) -> bool:
-        if not self._CACHE_FILE.exists() or not current_sig:
+        cache_path = self._get_cache_file()
+        if not cache_path.exists() or not current_sig:
             return False
         try:
-            with open(self._CACHE_FILE, "rb") as f:
+            with open(cache_path, "rb") as f:
                 data = pickle.load(f)
             if data.get("signature") == current_sig:
                 self._chunks = data.get("chunks", [])
@@ -131,6 +204,7 @@ class KnowledgeBaseAgent(AgentBase):
     def _save_cache(self, current_sig: dict[str, str]) -> None:
         if not current_sig or self._using_fallback:
             return
+        cache_path = self._get_cache_file()
         try:
             data = {
                 "signature": current_sig,
@@ -142,14 +216,15 @@ class KnowledgeBaseAgent(AgentBase):
                 "corpus_size": self._corpus_size,
                 "using_fallback": self._using_fallback,
             }
-            self._CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._CACHE_FILE, "wb") as f:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(cache_path, "wb") as f:
                 pickle.dump(data, f)
         except Exception as exc:
             print(f"[KnowledgeBase] Lỗi khi ghi cache BM25: {exc}")
 
     # Xây dựng lại toàn bộ chỉ mục tìm kiếm khi có cập nhật tệp tài liệu mới.
     def rebuild_index(self, force: bool = False) -> None:
+        self._synonyms = self._load_synonyms()
         current_sig = self._compute_files_signature()
         self._chunks = []
         self._load_documents()
@@ -157,22 +232,76 @@ class KnowledgeBaseAgent(AgentBase):
             self._build_index()
             self._save_cache(current_sig)
 
+    # Tải lại bộ chỉ mục và từ điển đồng nghĩa từ tệp đệm hoặc tài liệu nguồn.
+    def reload(self) -> None:
+        self.rebuild_index(force=True)
+
     # Tách từ tiếng Việt và lọc các từ quá ngắn khỏi chuỗi văn bản.
     def _tokenize(self, text: str) -> list[str]:
         tokens = re.findall(r'[\w]+', text.lower(), re.UNICODE)
         return [t for t in tokens if len(t) > 1 or t in ('à', 'ở', 'ý')]
 
+    # Mở rộng tập từ khóa truy vấn thông qua từ điển thuật ngữ đồng nghĩa synonyms.
+    def _expand_query_tokens(self, query: str) -> list[str]:
+        tokens = self._tokenize(query)
+        if not self._synonyms:
+            return tokens
+        q_lower = query.lower()
+        expanded = list(tokens)
+        token_set = set(tokens)
+
+        for term, syn_list in self._synonyms.items():
+            term_lower = term.lower()
+            term_tokens = self._tokenize(term_lower)
+
+            # Kiểm tra xem term hoặc các synonyms có khớp chính xác (từ độc lập hoặc cụm từ liền kề)
+            matched = False
+            if len(term_tokens) == 1 and term_tokens[0] in token_set:
+                matched = True
+            elif len(term_tokens) > 1 and re.search(r'(?:\b|^)' + re.escape(term_lower) + r'(?:\b|$)', q_lower):
+                matched = True
+            else:
+                for syn in syn_list:
+                    syn_lower = syn.lower()
+                    syn_tokens = self._tokenize(syn_lower)
+                    if len(syn_tokens) == 1 and syn_tokens[0] in token_set:
+                        matched = True
+                        break
+                    elif len(syn_tokens) > 1 and re.search(r'(?:\b|^)' + re.escape(syn_lower) + r'(?:\b|$)', q_lower):
+                        matched = True
+                        break
+
+            if matched:
+                for t in term_tokens:
+                    if t not in expanded:
+                        expanded.append(t)
+                        token_set.add(t)
+                for syn in syn_list:
+                    for st in self._tokenize(syn):
+                        if st not in expanded:
+                            expanded.append(st)
+                            token_set.add(st)
+        return expanded
+
     # Quét và đọc nội dung văn bản từ thư mục tài liệu hoặc nạp kho dự phòng.
     def _load_documents(self) -> None:
         try:
             from storage.file_reader import scan_documents
-            doc_items = scan_documents(self._DOCS_DIR)
-            for item in doc_items:
-                content = item.get("text", "")
-                rel_path = item.get("rel_path", item.get("filename", "unknown"))
-                if content and content.strip():
-                    for chunk_text in self._split_into_chunks(content):
-                        self._chunks.append({"text": chunk_text, "source": rel_path})
+            dirs_to_scan = [str(self._DOCS_DIR)]
+            domain = self._get_active_domain()
+            if domain:
+                domain_docs = BASE_DIR / "data" / "domains" / domain / "kb_docs"
+                if domain_docs.exists() and str(domain_docs) not in dirs_to_scan:
+                    dirs_to_scan.append(str(domain_docs))
+            for scan_dir in dirs_to_scan:
+                if os.path.exists(scan_dir):
+                    doc_items = scan_documents(scan_dir)
+                    for item in doc_items:
+                        content = item.get("text", "")
+                        rel_path = item.get("rel_path", item.get("filename", "unknown"))
+                        if content and content.strip():
+                            for chunk_text in self._split_into_chunks(content):
+                                self._chunks.append({"text": chunk_text, "source": rel_path})
         except Exception as exc:
             print(f"[KnowledgeBase] Lỗi khi nạp tài liệu từ {self._DOCS_DIR}: {exc}")
         if not self._chunks:
@@ -232,7 +361,7 @@ class KnowledgeBaseAgent(AgentBase):
             return {"kb_context": "", "sources": [], "message": self._log("Không có câu truy vấn.")}
         if not self._chunks:
             return {"kb_context": "", "sources": [], "message": self._log("Knowledge Base trống. Hãy thêm file .txt hoặc .md vào thư mục data/docs/")}
-        query_tokens = self._tokenize(query)
+        query_tokens = self._expand_query_tokens(query)
         if not query_tokens:
             return {"kb_context": "", "sources": [], "message": self._log("Không thể trích xuất từ khóa từ câu truy vấn.")}
         scored_results = self._score(query_tokens)

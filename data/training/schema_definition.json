@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Domain & Training Data Schemas",
+  "definitions": {
+    "intent_record": {
+      "type": "object",
+      "required": ["intent", "text"],
+      "properties": {
+        "intent": { "type": "string" },
+        "text": { "type": "string" },
+        "entities": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "qa_pair": {
+      "type": "object",
+      "required": ["question"],
+      "properties": {
+        "question": { "type": "string" },
+        "expected_intent": { "type": "string" },
+        "expected_keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "context": { "type": "string" },
+        "answer": { "type": "string" },
+        "domain": { "type": "string" }
+      }
+    },
+    "domain_metadata": {
+      "type": "object",
+      "required": ["domain_id", "domain_name", "version"],
+      "properties": {
+        "domain_id": { "type": "string" },
+        "domain_name": { "type": "string" },
+        "description": { "type": "string" },
+        "version": { "type": "string" },
+        "intents": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "active_agents": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "synonyms": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  }
+}

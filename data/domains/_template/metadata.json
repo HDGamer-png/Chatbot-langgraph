@@ -1,0 +1,27 @@
+{
+  "domain_id": "_template",
+  "domain_name": "Lĩnh vực Mẫu (Template Domain)",
+  "description": "Thư mục mẫu chuẩn mực phục vụ cấu hình, huấn luyện và đánh giá một chuyên ngành mới trong hệ thống Multi-Agent Chatbot.",
+  "version": "1.0.0",
+  "intents": [
+    "calculate",
+    "datetime",
+    "rag",
+    "search",
+    "analyze",
+    "plan",
+    "greet",
+    "general"
+  ],
+  "active_agents": [
+    "IntentClassifier",
+    "KnowledgeBase",
+    "Calculator",
+    "DateTime",
+    "WebSearch",
+    "Analyst",
+    "Planner",
+    "Validator",
+    "ResponseGenerator"
+  ]
+}

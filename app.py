@@ -271,6 +271,30 @@ def health():
     })
 
 
+# Trả về thông tin lĩnh vực chuyên ngành đang kích hoạt và phiên bản mô hình
+@app.route("/api/domain/current", methods=["GET"])
+def current_domain():
+    try:
+        active_domain_file = BASE_DIR / "data" / ".active_domain"
+        active_domain = "default"
+        if active_domain_file.exists():
+            active_domain = active_domain_file.read_text(encoding="utf-8").strip() or "default"
+        meta_file = BASE_DIR / "models" / "intent_meta.json"
+        meta = {}
+        if meta_file.exists():
+            with open(meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        return jsonify({
+            "active_domain": active_domain,
+            "engine": meta.get("engine", "fast"),
+            "model": meta.get("selected_model", "Unknown"),
+            "trained_at": meta.get("trained_at", ""),
+            "classes": meta.get("classes", []),
+        })
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
 # Trả về danh sách tất cả các phiên hội thoại hiện có trong cơ sở dữ liệu
 @app.route("/api/sessions", methods=["GET"])
 def sessions():

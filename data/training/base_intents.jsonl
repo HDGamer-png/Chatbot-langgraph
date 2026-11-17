@@ -1,0 +1,301 @@
+{"intent": "calculate", "text": "tính 25 cộng 30"}
+{"intent": "calculate", "text": "25 nhân 4 bằng bao nhiêu"}
+{"intent": "calculate", "text": "giải phương trình 2x + 5 = 15"}
+{"intent": "calculate", "text": "căn bậc hai của 144 là bao nhiêu"}
+{"intent": "calculate", "text": "tính diện tích hình tròn bán kính 5"}
+{"intent": "calculate", "text": "5 giai thừa bằng mấy"}
+{"intent": "calculate", "text": "tính tổng từ 1 đến 100"}
+{"intent": "calculate", "text": "phép chia 100 cho 7 dư bao nhiêu"}
+{"intent": "calculate", "text": "tính sin của 30 độ"}
+{"intent": "calculate", "text": "giải bất phương trình x^2 - 4 > 0"}
+{"intent": "calculate", "text": "10 lũy thừa 3 bằng bao nhiêu"}
+{"intent": "calculate", "text": "logarit cơ số 2 của 8"}
+{"intent": "calculate", "text": "tính đạo hàm của x^2 + 3x"}
+{"intent": "calculate", "text": "bao nhiêu phần trăm của 200 là 50"}
+{"intent": "calculate", "text": "quy đổi 100 usd ra vnd"}
+{"intent": "calculate", "text": "tính 15 * 6"}
+{"intent": "calculate", "text": "tính 10 + 20"}
+{"intent": "calculate", "text": "tính 50 * 2 + 25"}
+{"intent": "calculate", "text": "tính 25 * 4 + 10"}
+{"intent": "calculate", "text": "căn bậc hai của 144"}
+{"intent": "calculate", "text": "giải phương trình 2x + 6 = 16"}
+{"intent": "calculate", "text": "tính toán biểu thức 12 + 8"}
+{"intent": "calculate", "text": "15 nhân 8"}
+{"intent": "calculate", "text": "tính 100 trừ 45"}
+{"intent": "calculate", "text": "phép nhân 12 với 15"}
+{"intent": "calculate", "text": "tính phần trăm 50 trong 200"}
+{"intent": "datetime", "text": "hôm nay là ngày bao nhiêu"}
+{"intent": "datetime", "text": "bây giờ mấy giờ rồi"}
+{"intent": "datetime", "text": "ngày mai là thứ mấy"}
+{"intent": "datetime", "text": "còn bao nhiêu ngày nữa đến tết"}
+{"intent": "datetime", "text": "giờ ở Mỹ bây giờ là mấy giờ"}
+{"intent": "datetime", "text": "múi giờ của Tokyo là gì"}
+{"intent": "datetime", "text": "tuần sau là ngày mấy"}
+{"intent": "datetime", "text": "hôm qua là ngày bao nhiêu"}
+{"intent": "datetime", "text": "năm nay là năm con gì"}
+{"intent": "datetime", "text": "tháng này có bao nhiêu ngày"}
+{"intent": "datetime", "text": "giờ London bây giờ là mấy giờ"}
+{"intent": "datetime", "text": "thời gian hiện tại ở Hàn Quốc"}
+{"intent": "datetime", "text": "khi nào là quốc khánh Việt Nam"}
+{"intent": "datetime", "text": "đếm ngược đến giáng sinh"}
+{"intent": "datetime", "text": "tuần này bắt đầu từ ngày nào"}
+{"intent": "datetime", "text": "bây giờ là mấy giờ"}
+{"intent": "datetime", "text": "hôm nay là thứ mấy"}
+{"intent": "datetime", "text": "ngày mai là ngày mấy"}
+{"intent": "datetime", "text": "cho tôi biết thời gian hiện tại"}
+{"intent": "datetime", "text": "mấy giờ rồi bạn"}
+{"intent": "datetime", "text": "lịch âm hôm nay là ngày mấy"}
+{"intent": "datetime", "text": "hôm nay thứ mấy"}
+{"intent": "datetime", "text": "xem ngày giờ hiện tại"}
+{"intent": "datetime", "text": "thời gian bây giờ"}
+{"intent": "rag", "text": "giải thích LangGraph là gì"}
+{"intent": "rag", "text": "kiến trúc của hệ thống RAG hoạt động như thế nào"}
+{"intent": "rag", "text": "so sánh CrewAI và AutoGen"}
+{"intent": "rag", "text": "mô hình ReAct agent là gì"}
+{"intent": "rag", "text": "cách tổ chức bộ nhớ cho chatbot"}
+{"intent": "rag", "text": "tài liệu về multi-agent system"}
+{"intent": "rag", "text": "hệ thống RAG có những thành phần nào"}
+{"intent": "rag", "text": "vector database dùng để làm gì"}
+{"intent": "rag", "text": "embedding là gì và hoạt động ra sao"}
+{"intent": "rag", "text": "retrieval augmented generation nghĩa là gì"}
+{"intent": "rag", "text": "cách xây dựng knowledge base cho chatbot"}
+{"intent": "rag", "text": "LangChain khác LangGraph ở điểm nào"}
+{"intent": "rag", "text": "agent memory có mấy loại"}
+{"intent": "rag", "text": "cơ chế tool calling trong LLM hoạt động thế nào"}
+{"intent": "rag", "text": "langgraph là gì"}
+{"intent": "rag", "text": "langgraph multi agent"}
+{"intent": "rag", "text": "tra cứu tài liệu nội bộ"}
+{"intent": "rag", "text": "kiến trúc hệ thống multi agent"}
+{"intent": "rag", "text": "quy chế thực tập của công ty"}
+{"intent": "rag", "text": "thực tập sinh cần nắm tiêu chí gì"}
+{"intent": "rag", "text": "hàm solve_linear_equation trong math_utils"}
+{"intent": "rag", "text": "nội dung file math_utils.py"}
+{"intent": "rag", "text": "bảng điểm đánh giá thực tập"}
+{"intent": "rag", "text": "tài liệu hướng dẫn thực tập"}
+{"intent": "rag", "text": "thông tin về hệ thống đa tác tử"}
+{"intent": "search", "text": "python là gì"}
+{"intent": "search", "text": "machine learning là gì"}
+{"intent": "search", "text": "deep learning là gì"}
+{"intent": "search", "text": "trí tuệ nhân tạo là gì"}
+{"intent": "search", "text": "tìm kiếm thông tin về Python 3.12"}
+{"intent": "search", "text": "search Google về machine learning"}
+{"intent": "search", "text": "tìm trên mạng cách cài đặt Docker"}
+{"intent": "search", "text": "tra cứu tin tức mới nhất về AI"}
+{"intent": "search", "text": "tìm hiểu về framework FastAPI"}
+{"intent": "search", "text": "tìm bài viết về deep learning"}
+{"intent": "search", "text": "search cách sử dụng Git nâng cao"}
+{"intent": "search", "text": "tìm kiếm tutorial về React Native"}
+{"intent": "search", "text": "tra cứu thông tin về công ty OpenAI"}
+{"intent": "search", "text": "tìm trên web về thuật toán sắp xếp"}
+{"intent": "search", "text": "tìm xem thời tiết hôm nay thế nào"}
+{"intent": "search", "text": "search tin tức công nghệ hôm nay"}
+{"intent": "search", "text": "tìm thông tin về ngôn ngữ Rust"}
+{"intent": "search", "text": "thời tiết hôm nay"}
+{"intent": "search", "text": "thời tiết hà nội"}
+{"intent": "search", "text": "tin tức thời sự hôm nay"}
+{"intent": "search", "text": "search google về trí tuệ nhân tạo"}
+{"intent": "search", "text": "tìm kiếm tài liệu kubernetes"}
+{"intent": "search", "text": "tra cứu thông tin trên internet"}
+{"intent": "analyze", "text": "phân tích ưu nhược điểm của Python"}
+{"intent": "analyze", "text": "so sánh hiệu năng giữa Java và C++"}
+{"intent": "analyze", "text": "đánh giá framework Django và Flask"}
+{"intent": "analyze", "text": "phân tích xu hướng công nghệ năm 2026"}
+{"intent": "analyze", "text": "đánh giá ưu nhược điểm của microservice"}
+{"intent": "analyze", "text": "so sánh SQL và NoSQL nên dùng cái nào"}
+{"intent": "analyze", "text": "phân tích điểm mạnh yếu của React và Vue"}
+{"intent": "analyze", "text": "review kiến trúc serverless"}
+{"intent": "analyze", "text": "đánh giá ngôn ngữ Go cho backend"}
+{"intent": "analyze", "text": "so sánh giữa REST API và GraphQL"}
+{"intent": "analyze", "text": "phân tích chi phí cloud AWS và Azure"}
+{"intent": "analyze", "text": "đánh giá mô hình Agile và Waterfall"}
+{"intent": "analyze", "text": "so sánh Docker và Kubernetes"}
+{"intent": "analyze", "text": "đánh giá cấu trúc dự án"}
+{"intent": "analyze", "text": "phân tích độ phức tạp thuật toán"}
+{"intent": "analyze", "text": "phân tích mã nguồn chương trình"}
+{"intent": "analyze", "text": "so sánh postgresql và mysql"}
+{"intent": "analyze", "text": "đánh giá hiệu năng hệ thống"}
+{"intent": "plan", "text": "lập kế hoạch học Python trong 3 tháng"}
+{"intent": "plan", "text": "tạo roadmap trở thành fullstack developer"}
+{"intent": "plan", "text": "lên lịch học máy learning cho người mới"}
+{"intent": "plan", "text": "lập kế hoạch dự án web trong 2 tuần"}
+{"intent": "plan", "text": "tạo timeline phát triển ứng dụng mobile"}
+{"intent": "plan", "text": "lên kế hoạch ôn thi chứng chỉ AWS"}
+{"intent": "plan", "text": "lập lộ trình học data science từ đầu"}
+{"intent": "plan", "text": "planning sprint cho team 5 người"}
+{"intent": "plan", "text": "lên kế hoạch triển khai hệ thống CI/CD"}
+{"intent": "plan", "text": "tạo kế hoạch backup dữ liệu hàng tuần"}
+{"intent": "plan", "text": "lập lộ trình chuyển đổi từ monolith sang microservice"}
+{"intent": "plan", "text": "kế hoạch học tiếng Anh IT trong 6 tháng"}
+{"intent": "plan", "text": "tạo roadmap học AI và machine learning"}
+{"intent": "plan", "text": "lên kế hoạch thực tập tốt nghiệp"}
+{"intent": "plan", "text": "kế hoạch phát triển tính năng mới"}
+{"intent": "plan", "text": "lập kế hoạch triển khai phần mềm"}
+{"intent": "plan", "text": "các bước xây dựng hệ thống multi agent"}
+{"intent": "plan", "text": "tạo checklist công việc tuần này"}
+{"intent": "greet", "text": "xin chào"}
+{"intent": "greet", "text": "chào bạn"}
+{"intent": "greet", "text": "hello"}
+{"intent": "greet", "text": "hi"}
+{"intent": "greet", "text": "hey bạn ơi"}
+{"intent": "greet", "text": "chào buổi sáng"}
+{"intent": "greet", "text": "chào buổi tối"}
+{"intent": "greet", "text": "bạn có khỏe không"}
+{"intent": "greet", "text": "rất vui được gặp bạn"}
+{"intent": "greet", "text": "bạn tên là gì"}
+{"intent": "greet", "text": "bạn là ai vậy"}
+{"intent": "greet", "text": "cảm ơn bạn nhiều"}
+{"intent": "greet", "text": "tạm biệt nhé"}
+{"intent": "greet", "text": "hẹn gặp lại"}
+{"intent": "greet", "text": "bạn có thể giúp gì cho tôi"}
+{"intent": "greet", "text": "xin chào bot"}
+{"intent": "greet", "text": "xin chào bạn"}
+{"intent": "greet", "text": "hi bot"}
+{"intent": "greet", "text": "chào trợ lý"}
+{"intent": "greet", "text": "hello bạn"}
+{"intent": "greet", "text": "chào em"}
+{"intent": "greet", "text": "chào buổi trưa"}
+{"intent": "greet", "text": "alo bot ơi"}
+{"intent": "greet", "text": "rất hân hạnh được nói chuyện với bạn"}
+{"intent": "general", "text": "cho tôi hỏi một chút"}
+{"intent": "general", "text": "tôi muốn biết thêm"}
+{"intent": "general", "text": "bạn có thể giải thích rõ hơn không"}
+{"intent": "general", "text": "tôi không hiểu lắm"}
+{"intent": "general", "text": "nói thêm về vấn đề này đi"}
+{"intent": "general", "text": "có ý kiến gì không"}
+{"intent": "general", "text": "thử lại một lần nữa"}
+{"intent": "general", "text": "tiếp tục đi bạn"}
+{"intent": "general", "text": "tôi cần trợ giúp"}
+{"intent": "general", "text": "mình muốn thảo luận về một vấn đề"}
+{"intent": "general", "text": "bạn nghĩ sao về điều này"}
+{"intent": "general", "text": "có cách nào khác không"}
+{"intent": "general", "text": "tóm tắt lại cho tôi"}
+{"intent": "general", "text": "tôi cần bạn tư vấn"}
+{"intent": "general", "text": "bạn thấy thế nào"}
+{"intent": "general", "text": "giúp tôi với"}
+{"intent": "general", "text": "tôi muốn hỏi thăm chút"}
+{"intent": "general", "text": "có lời khuyên gì không"}
+{"intent": "general", "text": "làm ơn giải thích thêm"}
+{"intent": "calculate", "text": "tính 100 + 200"}
+{"intent": "calculate", "text": "tính 45 * 2"}
+{"intent": "calculate", "text": "tính căn bậc hai của 81"}
+{"intent": "calculate", "text": "phép tính 60 chia 5"}
+{"intent": "calculate", "text": "tính 3 mũ 4"}
+{"intent": "calculate", "text": "tính giá trị biểu thức 15 * 8 + 120"}
+{"intent": "calculate", "text": "tính 25 nhân 4 cộng 10"}
+{"intent": "calculate", "text": "giải hệ phương trình x + y = 10 và x - y = 2"}
+{"intent": "calculate", "text": "tính log cơ số 10 của 1000"}
+{"intent": "calculate", "text": "tính tích phân từ 0 đến 1"}
+{"intent": "calculate", "text": "tính diện tích tam giác đáy 10 chiều cao 5"}
+{"intent": "calculate", "text": "tính chu vi hình tròn đường kính 10"}
+{"intent": "calculate", "text": "tính 999 trừ 333"}
+{"intent": "calculate", "text": "tính 50 chia 2 cộng 15"}
+{"intent": "calculate", "text": "tính phần trăm tăng trưởng từ 100 lên 150"}
+{"intent": "calculate", "text": "kết quả của phép toán 12 * 12 là gì"}
+{"intent": "calculate", "text": "tính 7 giai thừa"}
+{"intent": "calculate", "text": "tính sin 90 độ"}
+{"intent": "datetime", "text": "bây giờ là mấy giờ mấy phút"}
+{"intent": "datetime", "text": "hôm nay là thứ mấy ngày mấy"}
+{"intent": "datetime", "text": "cho tôi xem giờ hiện tại"}
+{"intent": "datetime", "text": "thời gian bây giờ là mấy giờ"}
+{"intent": "datetime", "text": "ngày mai là ngày mấy tháng mấy"}
+{"intent": "datetime", "text": "hôm qua là ngày mấy"}
+{"intent": "datetime", "text": "năm nay là năm bao nhiêu"}
+{"intent": "datetime", "text": "tháng sau là tháng mấy"}
+{"intent": "datetime", "text": "thời gian hiện tại ở việt nam"}
+{"intent": "datetime", "text": "giờ new york hiện tại là mấy giờ"}
+{"intent": "datetime", "text": "múi giờ gmt+7 hiện tại"}
+{"intent": "datetime", "text": "lịch làm việc hôm nay"}
+{"intent": "datetime", "text": "ngày quốc tế phụ nữ là ngày nào"}
+{"intent": "datetime", "text": "còn bao nhiêu tuần nữa hết năm"}
+{"intent": "datetime", "text": "hôm nay có phải chủ nhật không"}
+{"intent": "datetime", "text": "thời điểm hiện tại là mấy giờ"}
+{"intent": "datetime", "text": "xem lịch ngày hôm nay"}
+{"intent": "rag", "text": "langgraph là gì và dùng như thế nào"}
+{"intent": "rag", "text": "hệ thống rag hoạt động ra sao"}
+{"intent": "rag", "text": "tài liệu về multi agent trong langchain"}
+{"intent": "rag", "text": "hướng dẫn sử dụng thư viện bm25"}
+{"intent": "rag", "text": "kiến trúc retrieval augmented generation"}
+{"intent": "rag", "text": "tài liệu kỹ thuật của dự án"}
+{"intent": "rag", "text": "tra cứu nội dung file quy chế thực tập"}
+{"intent": "rag", "text": "nội dung bảng điểm đánh giá thực tập"}
+{"intent": "rag", "text": "tài liệu mã nguồn math_utils"}
+{"intent": "rag", "text": "tìm hiểu về crewai và autogen"}
+{"intent": "rag", "text": "vector embedding trong nlp là gì"}
+{"intent": "rag", "text": "cách lưu trữ vector trong cơ sở dữ liệu"}
+{"intent": "rag", "text": "kiến trúc stateful graph trong langgraph"}
+{"intent": "rag", "text": "quy chế đánh giá kết quả thực tập"}
+{"intent": "rag", "text": "tài liệu hướng dẫn nạp kiến thức vào chatbot"}
+{"intent": "rag", "text": "tài liệu về tác tử phản hồi response generator"}
+{"intent": "rag", "text": "đọc tài liệu nội bộ trong kho data docs"}
+{"intent": "search", "text": "tìm kiếm thông tin trên google"}
+{"intent": "search", "text": "search tin tức công nghệ mới nhất"}
+{"intent": "search", "text": "thời tiết hà nội hôm nay mưa hay nắng"}
+{"intent": "search", "text": "tìm kiếm tài liệu học docker cho người mới"}
+{"intent": "search", "text": "tra cứu thông tin thời tiết sài gòn"}
+{"intent": "search", "text": "search thông tin về trí tuệ nhân tạo tạo sinh"}
+{"intent": "search", "text": "tìm trên web các bài viết về fastapi"}
+{"intent": "search", "text": "tra cứu giá vàng hôm nay"}
+{"intent": "search", "text": "tìm kiếm diễn đàn lập trình python"}
+{"intent": "search", "text": "tìm hiểu thông tin về cpu intel thế hệ mới"}
+{"intent": "search", "text": "search thông tin về kubernetes cluster"}
+{"intent": "search", "text": "tìm kiếm trang web chính thức của python"}
+{"intent": "search", "text": "tra cứu thông tin thời tiết ngày mai"}
+{"intent": "search", "text": "tìm tin tức thời sự việt nam hôm nay"}
+{"intent": "search", "text": "search bài hướng dẫn cài đặt linux"}
+{"intent": "analyze", "text": "phân tích điểm mạnh và điểm yếu của microservices"}
+{"intent": "analyze", "text": "so sánh chi tiết giữa vuejs và reactjs"}
+{"intent": "analyze", "text": "đánh giá hiệu năng giữa rust và c++"}
+{"intent": "analyze", "text": "phân tích cấu trúc thư mục mã nguồn"}
+{"intent": "analyze", "text": "đánh giá ưu nhược điểm của kiến trúc monolih"}
+{"intent": "analyze", "text": "phân tích độ phức tạp thời gian của quicksort"}
+{"intent": "analyze", "text": "so sánh cơ sở dữ liệu relational và nosql"}
+{"intent": "analyze", "text": "đánh giá độ tin cậy của hệ thống phân tán"}
+{"intent": "analyze", "text": "phân tích xu hướng phát triển phần mềm năm 2026"}
+{"intent": "analyze", "text": "so sánh grpc và restful api"}
+{"intent": "analyze", "text": "đánh giá kiến trúc cloud native"}
+{"intent": "analyze", "text": "phân tích chi phí vận hành máy chủ aws"}
+{"intent": "analyze", "text": "so sánh git rebase và git merge"}
+{"intent": "analyze", "text": "đánh giá hiệu quả của thuật toán sắp xếp"}
+{"intent": "plan", "text": "lập kế hoạch học máy học từ con số 0"}
+{"intent": "plan", "text": "tạo lộ trình trở thành kỹ sư backend"}
+{"intent": "plan", "text": "kế hoạch 30 ngày tự học python cơ bản"}
+{"intent": "plan", "text": "lập checklist các bước triển khai dự án"}
+{"intent": "plan", "text": "lộ trình phát triển hệ thống multi agent"}
+{"intent": "plan", "text": "lập timeline thực hiện đề tài tốt nghiệp"}
+{"intent": "plan", "text": "kế hoạch chuẩn bị thi chứng chỉ cloud"}
+{"intent": "plan", "text": "tạo kế hoạch kiểm thử chất lượng phần mềm"}
+{"intent": "plan", "text": "lên lộ trình học lập trình web trong 6 tháng"}
+{"intent": "plan", "text": "kế hoạch phân bổ nhân sự cho dự án"}
+{"intent": "plan", "text": "các bước lên kế hoạch sprint trong agile"}
+{"intent": "plan", "text": "lập roadmap nâng cấp hệ thống phần mềm"}
+{"intent": "plan", "text": "kế hoạch tối ưu hóa hiệu năng ứng dụng"}
+{"intent": "greet", "text": "xin chào bạn nhé"}
+{"intent": "greet", "text": "chào bạn chatbot"}
+{"intent": "greet", "text": "hello trợ lý ảo"}
+{"intent": "greet", "text": "hi bot ơi"}
+{"intent": "greet", "text": "chúc một ngày tốt lành"}
+{"intent": "greet", "text": "chào buổi chiều bạn nhé"}
+{"intent": "greet", "text": "xin chào trợ lý ai"}
+{"intent": "greet", "text": "hello bot rất vui được nói chuyện"}
+{"intent": "greet", "text": "rất vui được làm quen với bạn"}
+{"intent": "greet", "text": "chào bạn tôi là người dùng mới"}
+{"intent": "greet", "text": "chào mừng bạn quay trở lại"}
+{"intent": "greet", "text": "hey chatbot cho tôi chào bạn cái nhé"}
+{"intent": "greet", "text": "chào nhé"}
+{"intent": "greet", "text": "gửi lời chào tới trợ lý"}
+{"intent": "greet", "text": "xin chào buổi tối"}
+{"intent": "general", "text": "tôi có một thắc mắc cần bạn giải đáp"}
+{"intent": "general", "text": "bạn có thể hỗ trợ tôi không"}
+{"intent": "general", "text": "tôi muốn hỏi thêm thông tin"}
+{"intent": "general", "text": "bạn hiểu tôi nói gì không"}
+{"intent": "general", "text": "cho tôi hỏi thêm một câu nữa nhé"}
+{"intent": "general", "text": "vấn đề này khá thú vị"}
+{"intent": "general", "text": "nhờ bạn tư vấn giúp tôi"}
+{"intent": "general", "text": "tôi đang phân vân không biết thế nào"}
+{"intent": "general", "text": "giải thích thêm chi tiết cho tôi"}
+{"intent": "general", "text": "bạn có đề xuất gì cho tôi không"}
+{"intent": "general", "text": "tôi cần sự giúp đỡ của bạn"}
+{"intent": "general", "text": "có cách giải quyết nào khác không"}
+{"intent": "general", "text": "tôi muốn nghe ý kiến của bạn về điều này"}
+{"intent": "general", "text": "bạn có gợi ý nào không"}
+{"intent": "general", "text": "giúp tôi làm rõ vấn đề này"}

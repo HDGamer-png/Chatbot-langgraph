@@ -1,0 +1,8 @@
+{"question": "tính 50 * 2 + 25", "expected_intent": "calculate", "expected_keywords": ["125"], "answer": "125", "domain": "_template"}
+{"question": "hôm nay là thứ mấy", "expected_intent": "datetime", "expected_keywords": ["Thứ"], "answer": "Thứ", "domain": "_template"}
+{"question": "xin chào bot", "expected_intent": "greet", "expected_keywords": ["Trợ lý", "AI"], "answer": "Trợ lý AI", "domain": "_template"}
+{"question": "langgraph là gì", "expected_intent": "rag", "expected_keywords": ["LangGraph", "framework", "agent"], "answer": "LangGraph là framework", "domain": "_template"}
+{"question": "thời tiết hôm nay", "expected_intent": "search", "expected_keywords": ["Tra cứu"], "answer": "Tra cứu", "domain": "_template"}
+{"question": "phân tích ưu nhược điểm của Python", "expected_intent": "analyze", "expected_keywords": ["Phân tích", "TextRank"], "answer": "Phân tích", "domain": "_template"}
+{"question": "lập kế hoạch học Python trong 3 tháng", "expected_intent": "plan", "expected_keywords": ["Lộ trình", "Kế hoạch"], "answer": "Lộ trình", "domain": "_template"}
+{"question": "kiến trúc hệ thống RAG hoạt động như thế nào", "expected_intent": "rag", "expected_keywords": ["RAG", "Retrieval"], "answer": "RAG", "domain": "_template"}

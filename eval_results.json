@@ -1,0 +1,137 @@
+{
+  "timestamp": "2026-11-18T06:49:40.515422",
+  "domain": "_template",
+  "total_queries": 8,
+  "intent_accuracy_percent": 100.0,
+  "recall_hit_rate_percent": 100.0,
+  "latency_ms": {
+    "avg": 340.52,
+    "p50": 196.52,
+    "p95": 1036.24
+  },
+  "average_confidence": 0.7423,
+  "agent_performance": {
+    "IntentClassifier": {
+      "avg_ms": 43.39,
+      "max_ms": 183.1
+    },
+    "Router": {
+      "avg_ms": 293.98,
+      "max_ms": 1011.1
+    },
+    "Calculator": {
+      "avg_ms": 0.8,
+      "max_ms": 1.5
+    },
+    "Planner": {
+      "avg_ms": 0.1,
+      "max_ms": 0.2
+    },
+    "Validator": {
+      "avg_ms": 0.54,
+      "max_ms": 1.6
+    },
+    "ResponseGenerator": {
+      "avg_ms": 0.06,
+      "max_ms": 0.2
+    },
+    "DateTime": {
+      "avg_ms": 0.1,
+      "max_ms": 0.1
+    },
+    "Analyst": {
+      "avg_ms": 0.23,
+      "max_ms": 0.9
+    },
+    "KnowledgeBase": {
+      "avg_ms": 0.67,
+      "max_ms": 1.9
+    },
+    "WebSearch": {
+      "avg_ms": 776.5,
+      "max_ms": 1010.0
+    }
+  },
+  "details": [
+    {
+      "index": 1,
+      "question": "tính 50 * 2 + 25",
+      "expected_intent": "calculate",
+      "predicted_intent": "calculate",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 0.74,
+      "latency_ms": 196.52
+    },
+    {
+      "index": 2,
+      "question": "hôm nay là thứ mấy",
+      "expected_intent": "datetime",
+      "predicted_intent": "datetime",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 1.0,
+      "latency_ms": 25.39
+    },
+    {
+      "index": 3,
+      "question": "xin chào bot",
+      "expected_intent": "greet",
+      "predicted_intent": "greet",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 1.0,
+      "latency_ms": 25.25
+    },
+    {
+      "index": 4,
+      "question": "langgraph là gì",
+      "expected_intent": "rag",
+      "predicted_intent": "rag",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 0.6045,
+      "latency_ms": 28.85
+    },
+    {
+      "index": 5,
+      "question": "thời tiết hôm nay",
+      "expected_intent": "search",
+      "predicted_intent": "search",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 0.6144,
+      "latency_ms": 1036.24
+    },
+    {
+      "index": 6,
+      "question": "phân tích ưu nhược điểm của Python",
+      "expected_intent": "analyze",
+      "predicted_intent": "analyze",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 0.6897,
+      "latency_ms": 722.62
+    },
+    {
+      "index": 7,
+      "question": "lập kế hoạch học Python trong 3 tháng",
+      "expected_intent": "plan",
+      "predicted_intent": "plan",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 0.6788,
+      "latency_ms": 660.03
+    },
+    {
+      "index": 8,
+      "question": "kiến trúc hệ thống RAG hoạt động như thế nào",
+      "expected_intent": "rag",
+      "predicted_intent": "rag",
+      "intent_match": true,
+      "keyword_hit": true,
+      "confidence": 0.6107,
+      "latency_ms": 29.23
+    }
+  ]
+}

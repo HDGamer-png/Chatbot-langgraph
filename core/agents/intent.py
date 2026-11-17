@@ -1,7 +1,21 @@
+import json
+import unicodedata
+import warnings
+from pathlib import Path
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 from .base import AgentBase
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+DEFAULT_MODEL_PATH = BASE_DIR / "models" / "intent_model.joblib"
+DEFAULT_JSONL_PATH = BASE_DIR / "data" / "training" / "base_intents.jsonl"
+DEFAULT_ACTIVE_DOMAIN_FILE = BASE_DIR / "data" / ".active_domain"
+
 
 class IntentClassifierAgent(AgentBase):
     NAME = "IntentClassifier"
@@ -88,16 +102,63 @@ class IntentClassifierAgent(AgentBase):
                 labels.append(intent_label)
         return texts, labels
 
-    # Đảm bảo pipeline TF-IDF và Naive Bayes đã được huấn luyện và lưu bộ nhớ đệm.
-    def _ensure_model(self) -> None:
-        if self._pipeline is not None:
+    # Đảm bảo mô hình phân loại ý định được nạp từ tệp nhị phân hoặc huấn luyện từ tập mẫu dự phòng.
+    def _ensure_model(self, force: bool = False) -> None:
+        if self._pipeline is not None and not force:
             return
-        texts, labels = self._build_training_data()
+        if DEFAULT_MODEL_PATH.exists():
+            try:
+                self._pipeline = joblib.load(DEFAULT_MODEL_PATH)
+                return
+            except Exception as exc:
+                print(f"[IntentClassifier] Lỗi khi nạp mô hình đã huấn luyện từ {DEFAULT_MODEL_PATH}: {exc}")
+        texts, labels = [], []
+        if DEFAULT_JSONL_PATH.exists():
+            try:
+                with open(DEFAULT_JSONL_PATH, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        record = json.loads(line)
+                        t = record.get("text", "").strip().lower()
+                        l = record.get("intent", "").strip().lower()
+                        if t and l:
+                            texts.append(unicodedata.normalize("NFC", t))
+                            labels.append(l)
+            except Exception:
+                pass
+        if DEFAULT_ACTIVE_DOMAIN_FILE.exists():
+            try:
+                dom = DEFAULT_ACTIVE_DOMAIN_FILE.read_text(encoding="utf-8").strip()
+                if dom and dom not in ("default", "base"):
+                    dom_intents = BASE_DIR / "data" / "domains" / dom / "intents.jsonl"
+                    if dom_intents.exists():
+                        with open(dom_intents, "r", encoding="utf-8") as f:
+                            for line in f:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                record = json.loads(line)
+                                t = record.get("text", "").strip().lower()
+                                l = record.get("intent", "").strip().lower()
+                                if t and l:
+                                    texts.append(unicodedata.normalize("NFC", t))
+                                    labels.append(l)
+            except Exception:
+                pass
+        if not texts or not labels:
+            texts, labels = self._build_training_data()
         self._pipeline = Pipeline([
             ("tfidf", TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), max_features=8000, sublinear_tf=True)),
             ("clf", MultinomialNB(alpha=0.1)),
         ])
         self._pipeline.fit(texts, labels)
+
+    # Tải lại mô hình phân loại ý định từ tệp đĩa sau khi có cập nhật chuyên ngành hoặc huấn luyện.
+    def reload(self) -> None:
+        self._pipeline = None
+        self._ensure_model(force=True)
 
     # Phân loại ý định của câu truy vấn và trả về nhãn kèm độ tin cậy.
     def run(self, query: str = "", **kwargs) -> dict:
@@ -108,9 +169,13 @@ class IntentClassifierAgent(AgentBase):
                 "message": self._log("Không có câu hỏi — mặc định intent=general"),
             }
         self._ensure_model()
-        query_clean = query.strip().lower()
+        query_clean = unicodedata.normalize("NFC", query.strip().lower())
         predicted_label = self._pipeline.predict([query_clean])[0]
-        confidence = float(max(self._pipeline.predict_proba([query_clean])[0]))
+        if hasattr(self._pipeline, "predict_proba"):
+            probs = self._pipeline.predict_proba([query_clean])[0]
+            confidence = float(max(probs))
+        else:
+            confidence = 0.95
         intent_names_vi = {
             "calculate": "Tính toán",
             "datetime": "Ngày giờ",
